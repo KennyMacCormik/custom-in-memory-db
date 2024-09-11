@@ -1,7 +1,7 @@
 package main
 
 import (
-	"custom-in-memory-db/internal/server/compute/parser"
+	"custom-in-memory-db/internal/server/parser"
 	"fmt"
 	"os"
 )

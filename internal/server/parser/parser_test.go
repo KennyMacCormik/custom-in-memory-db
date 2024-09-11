@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -16,7 +17,7 @@ func toString(E interface{}) string {
 	return fmt.Sprintf("%v", E)
 }
 
-func TestBuffParser_Read(t *testing.T) {
+func TestBuffParser(t *testing.T) {
 	var buf BuffParser
 	var testCases = []testCase{
 		// basic commands
@@ -39,38 +40,38 @@ func TestBuffParser_Read(t *testing.T) {
 		{
 			"GET",
 			"",
-			fmt.Errorf("parsing error: argument validation error: expected at least 2 arguments, got 1"),
+			errors.New("parsing error: argument validation error: expected at least 2 arguments, got 1"),
 		},
 		{
 			"GET 2 2",
 			"",
-			fmt.Errorf("parsing error: argument validation error: expected 2 arguments, got 3"),
+			errors.New("parsing error: argument validation error: expected 2 arguments, got 3"),
 		},
 		{
 			"SET 2",
 			"",
-			fmt.Errorf("parsing error: argument validation error: expected 3 arguments, got 2"),
+			errors.New("parsing error: argument validation error: expected 3 arguments, got 2"),
 		},
 		{
 			"SET 2 2 2",
 			"",
-			fmt.Errorf("parsing error: argument validation error: expected 3 arguments, got 4"),
+			errors.New("parsing error: argument validation error: expected 3 arguments, got 4"),
 		},
 		{
 			"DEL 2 2 2",
 			"",
-			fmt.Errorf("parsing error: argument validation error: expected 2 arguments, got 4"),
+			errors.New("parsing error: argument validation error: expected 2 arguments, got 4"),
 		},
 		// invalid commands
 		{
 			"DeL 2",
 			"",
-			fmt.Errorf("parsing error: argument validation error: invalid command: DeL"),
+			errors.New("parsing error: argument validation error: invalid command: DeL"),
 		},
 		{
 			"qwerty 2",
 			"",
-			fmt.Errorf("parsing error: argument validation error: invalid command: qwerty"),
+			errors.New("parsing error: argument validation error: invalid command: qwerty"),
 		},
 		// trimming and tabs
 		{
@@ -118,22 +119,22 @@ func TestBuffParser_Read(t *testing.T) {
 		{
 			"GET w$ord",
 			"",
-			fmt.Errorf("parsing error: argument validation error: invalid argument 2: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
+			errors.New("parsing error: argument validation error: invalid argument 2: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
 		},
 		{
 			"SET test w\\ord",
 			"",
-			fmt.Errorf("parsing error: argument validation error: invalid argument 3: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
+			errors.New("parsing error: argument validation error: invalid argument 3: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
 		},
 		{
 			"\t\tDEL \t w@rd   ",
 			"",
-			fmt.Errorf("parsing error: argument validation error: invalid argument 2: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
+			errors.New("parsing error: argument validation error: invalid argument 2: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
 		},
 		{
 			"\t\tDEL \t w-rd   ",
 			"",
-			fmt.Errorf("parsing error: argument validation error: invalid argument 2: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
+			errors.New("parsing error: argument validation error: invalid argument 2: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
 		},
 	}
 
