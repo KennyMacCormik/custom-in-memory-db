@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"io"
+	"log/slog"
 	"slices"
 	"strings"
 )
@@ -14,7 +15,7 @@ const trim = " \t\n"
 const sep = " "
 
 type Parser interface {
-	Read(validCommands []string) (Command, error)
+	Read(validCommands []string, lg *slog.Logger) (Command, error)
 }
 
 type Command struct {
@@ -32,11 +33,13 @@ func (bp *BuffParser) New(in io.Reader) {
 }
 
 // Read reads buffer input and tries to compose it into valid Command struct
-func (bp *BuffParser) Read(vc []string) (Command, error) {
+func (bp *BuffParser) Read(vc []string, lg *slog.Logger) (Command, error) {
 	in, err := bp.reader.ReadString(eol)
 	if err != nil && err != io.EOF {
 		return Command{}, fmt.Errorf("failed to read command: %w", err)
 	}
+
+	lg.Debug("logging cmd", "cmd", in)
 
 	r, err := composeCommand(strings.Trim(in, trim), vc)
 	if err != nil {
