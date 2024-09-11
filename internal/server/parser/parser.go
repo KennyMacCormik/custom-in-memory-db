@@ -14,7 +14,7 @@ const trim = " \t\n"
 const sep = " "
 
 type Parser interface {
-	Read() (Command, error)
+	Read(validCommands []string) (Command, error)
 }
 
 type Command struct {
@@ -32,13 +32,13 @@ func (bp *BuffParser) New(in io.Reader) {
 }
 
 // Read reads buffer input and tries to compose it into valid Command struct
-func (bp *BuffParser) Read() (Command, error) {
+func (bp *BuffParser) Read(vc []string) (Command, error) {
 	in, err := bp.reader.ReadString(eol)
 	if err != nil && err != io.EOF {
 		return Command{}, fmt.Errorf("failed to read command: %w", err)
 	}
 
-	r, err := composeCommand(strings.Trim(in, trim))
+	r, err := composeCommand(strings.Trim(in, trim), vc)
 	if err != nil {
 		return Command{}, fmt.Errorf("parsing error: %w", err)
 	}
@@ -59,9 +59,9 @@ func trimArgs(s string) []string {
 }
 
 // composeCommand returns valid Command struct
-func composeCommand(s string) (Command, error) {
+func composeCommand(s string, vc []string) (Command, error) {
 	arr := trimArgs(s)
-	err := validateArgs(arr)
+	err := validateArgs(arr, vc)
 	if err != nil {
 		return Command{}, fmt.Errorf("argument validation error: %w", err)
 	}
@@ -70,24 +70,18 @@ func composeCommand(s string) (Command, error) {
 }
 
 // validateArgs ensures only correct values are present in the input
-func validateArgs(s []string) error {
-	validCommands := []string{"GET", "SET", "DEL"}
-	ln := len(s)
+func validateArgs(arr []string, vc []string) error {
+	ln := len(arr)
 	val := validator.New(validator.WithRequiredStructEnabled())
 	tag := "printascii,containsany=*_/|alphanum|numeric|alpha"
 
-	// min arg length
-	if ln < 2 {
-		return fmt.Errorf("expected at least 2 arguments, got %d", ln)
-	}
-
 	// command is valid
-	if !slices.Contains(validCommands, s[0]) {
-		return fmt.Errorf("invalid command: %s", s[0])
+	if !slices.Contains(vc, arr[0]) {
+		return fmt.Errorf("invalid command: %s", arr[0])
 	}
 
 	// commands have necessary args
-	switch s[0] {
+	switch arr[0] {
 	case "GET":
 		if ln != 2 {
 			return fmt.Errorf("expected 2 arguments, got %d", ln)
@@ -100,11 +94,15 @@ func validateArgs(s []string) error {
 		if ln != 3 {
 			return fmt.Errorf("expected 3 arguments, got %d", ln)
 		}
+	case "QUIT", "EXIT":
+		if ln != 1 {
+			return fmt.Errorf("expected 1 argument, got %d", ln)
+		}
 	}
 
 	// validate args
 	for i := 1; i < ln; i++ {
-		err := val.Var(s[i], tag)
+		err := val.Var(arr[i], tag)
 		if err != nil {
 			return fmt.Errorf("invalid argument %d: expected %s", i+1, tag)
 		}

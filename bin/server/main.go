@@ -1,8 +1,9 @@
 package main
 
 import (
+	"custom-in-memory-db/internal/server/compute"
 	"custom-in-memory-db/internal/server/parser"
-	"fmt"
+	_map "custom-in-memory-db/internal/server/storage/map"
 	"os"
 )
 
@@ -11,15 +12,14 @@ func main() {
 	// Init
 	bp := parser.BuffParser{}
 	bp.New(os.Stdin)
+	comp := compute.Comp{}
+	comp.New()
+	st := _map.MapStorage{}
+	st.New()
 
 	// Read cmd args
 
 	// Run app
-	run(&bp)
-}
-
-func run(p parser.Parser) {
-	for {
-		fmt.Println(p.Read())
-	}
+	// dunno why I need to use &bp but comp works fine
+	comp.ControlLoop(&bp, &st)
 }

@@ -36,11 +36,21 @@ func TestBuffParser(t *testing.T) {
 			"{DEL [2]}",
 			nil,
 		},
+		{
+			"QUIT",
+			"{QUIT []}",
+			nil,
+		},
+		{
+			"EXIT",
+			"{EXIT []}",
+			nil,
+		},
 		// invalid amount of args
 		{
 			"GET",
 			"",
-			errors.New("parsing error: argument validation error: expected at least 2 arguments, got 1"),
+			errors.New("parsing error: argument validation error: expected 2 arguments, got 1"),
 		},
 		{
 			"GET 2 2",
@@ -61,6 +71,16 @@ func TestBuffParser(t *testing.T) {
 			"DEL 2 2 2",
 			"",
 			errors.New("parsing error: argument validation error: expected 2 arguments, got 4"),
+		},
+		{
+			"QUIT 1",
+			"",
+			errors.New("parsing error: argument validation error: expected 1 argument, got 2"),
+		},
+		{
+			"EXIT 2 2",
+			"",
+			errors.New("parsing error: argument validation error: expected 1 argument, got 3"),
 		},
 		// invalid commands
 		{
@@ -140,7 +160,7 @@ func TestBuffParser(t *testing.T) {
 
 	for _, val := range testCases {
 		buf.New(strings.NewReader(val.Query))
-		res, err := buf.Read()
+		res, err := buf.Read([]string{"GET", "SET", "DEL", "QUIT", "EXIT"})
 		// error expected and present
 		if val.Error != nil && err != nil {
 			if err.Error() != val.Error.Error() {
