@@ -14,8 +14,12 @@ func main() {
 
 	// Read cmd args
 
-	// Start CLI loop
+	// Run app
+	run(&bp)
+}
+
+func run(p parser.Parser) {
 	for {
-		fmt.Println(bp.Read())
+		fmt.Println(p.Read())
 	}
 }

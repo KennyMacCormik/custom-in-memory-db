@@ -14,7 +14,7 @@ const trim = " \t\n"
 const sep = " "
 
 type Parser interface {
-	Read() Command
+	Read() (Command, error)
 }
 
 type Command struct {
