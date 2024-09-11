@@ -26,13 +26,15 @@ type BuffParser struct {
 	reader *bufio.Reader
 }
 
+// New creates new buffer to read input from
 func (bp *BuffParser) New(in io.Reader) {
 	bp.reader = bufio.NewReader(in)
 }
 
+// Read reads buffer input and tries to compose it into valid Command struct
 func (bp *BuffParser) Read() (Command, error) {
 	in, err := bp.reader.ReadString(eol)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return Command{}, fmt.Errorf("failed to read command: %w", err)
 	}
 
@@ -44,11 +46,22 @@ func (bp *BuffParser) Read() (Command, error) {
 	return r, nil
 }
 
-func composeCommand(s string) (Command, error) {
-	// dunno how to parametrize
+// trimArgs composes slice with only args present
+func trimArgs(s string) []string {
+	// dunno how to parametrize \t
 	s = strings.ReplaceAll(s, "\t", sep)
 	arr := strings.Split(s, sep)
-	err := validate(arr)
+	arr = slices.DeleteFunc(arr, func(s string) bool {
+		return s == ""
+	})
+
+	return arr
+}
+
+// composeCommand returns valid Command struct
+func composeCommand(s string) (Command, error) {
+	arr := trimArgs(s)
+	err := validateArgs(arr)
 	if err != nil {
 		return Command{}, fmt.Errorf("argument validation error: %w", err)
 	}
@@ -56,11 +69,12 @@ func composeCommand(s string) (Command, error) {
 	return Command{Command: arr[0], Args: arr[1:]}, nil
 }
 
-func validate(s []string) error {
+// validateArgs ensures only correct values are present in the input
+func validateArgs(s []string) error {
 	validCommands := []string{"GET", "SET", "DEL"}
 	ln := len(s)
 	val := validator.New(validator.WithRequiredStructEnabled())
-	tag := "alphanum|numeric|alpha|alphanum|printascii,containsany=*_/"
+	tag := "printascii,containsany=*_/|alphanum|numeric|alpha"
 
 	// min arg length
 	if ln < 2 {
@@ -90,7 +104,7 @@ func validate(s []string) error {
 
 	// validate args
 	for i := 1; i < ln; i++ {
-		err := val.Var(s[i], "printascii,containsany=*_/|alphanum|numeric|alpha|alphanum")
+		err := val.Var(s[i], tag)
 		if err != nil {
 			return fmt.Errorf("invalid argument %d: expected %s", i+1, tag)
 		}

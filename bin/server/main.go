@@ -3,7 +3,7 @@ package main
 import (
 	"custom-in-memory-db/internal/server/compute/parser"
 	"fmt"
-	"os"GET
+	"os"
 )
 
 func main() {
