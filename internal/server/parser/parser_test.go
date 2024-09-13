@@ -3,6 +3,8 @@ package parser
 import (
 	"errors"
 	"fmt"
+	"log/slog"
+	"os"
 	"strings"
 	"testing"
 )
@@ -18,6 +20,10 @@ func toString(E interface{}) string {
 }
 
 func TestBuffParser(t *testing.T) {
+	var logLevel = new(slog.LevelVar)
+	logLevel.Set(slog.LevelDebug)
+	lg := slog.New(slog.NewTextHandler(os.Stdin, &slog.HandlerOptions{Level: logLevel}))
+
 	var buf BuffParser
 	var testCases = []testCase{
 		// basic commands
@@ -50,37 +56,37 @@ func TestBuffParser(t *testing.T) {
 		{
 			"GET",
 			"",
-			errors.New("parsing error: argument validation error: expected 2 arguments, got 1"),
+			errors.New("parsing error: argument validation error: expected 1 argument, got 0"),
 		},
 		{
 			"GET 2 2",
 			"",
-			errors.New("parsing error: argument validation error: expected 2 arguments, got 3"),
+			errors.New("parsing error: argument validation error: expected 1 argument, got 2"),
 		},
 		{
 			"SET 2",
 			"",
-			errors.New("parsing error: argument validation error: expected 3 arguments, got 2"),
+			errors.New("parsing error: argument validation error: expected 2 arguments, got 1"),
 		},
 		{
 			"SET 2 2 2",
 			"",
-			errors.New("parsing error: argument validation error: expected 3 arguments, got 4"),
+			errors.New("parsing error: argument validation error: expected 2 arguments, got 3"),
 		},
 		{
 			"DEL 2 2 2",
 			"",
-			errors.New("parsing error: argument validation error: expected 2 arguments, got 4"),
+			errors.New("parsing error: argument validation error: expected 1 argument, got 3"),
 		},
 		{
 			"QUIT 1",
 			"",
-			errors.New("parsing error: argument validation error: expected 1 argument, got 2"),
+			errors.New("parsing error: argument validation error: expected 0 arguments, got 1"),
 		},
 		{
 			"EXIT 2 2",
 			"",
-			errors.New("parsing error: argument validation error: expected 1 argument, got 3"),
+			errors.New("parsing error: argument validation error: expected 0 arguments, got 2"),
 		},
 		// invalid commands
 		{
@@ -139,28 +145,28 @@ func TestBuffParser(t *testing.T) {
 		{
 			"GET w$ord",
 			"",
-			errors.New("parsing error: argument validation error: invalid argument 2: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
+			errors.New("parsing error: argument validation error: invalid argument 1: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
 		},
 		{
 			"SET test w\\ord",
 			"",
-			errors.New("parsing error: argument validation error: invalid argument 3: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
+			errors.New("parsing error: argument validation error: invalid argument 2: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
 		},
 		{
 			"\t\tDEL \t w@rd   ",
 			"",
-			errors.New("parsing error: argument validation error: invalid argument 2: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
+			errors.New("parsing error: argument validation error: invalid argument 1: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
 		},
 		{
 			"\t\tDEL \t w-rd   ",
 			"",
-			errors.New("parsing error: argument validation error: invalid argument 2: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
+			errors.New("parsing error: argument validation error: invalid argument 1: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
 		},
 	}
 
 	for _, val := range testCases {
 		buf.New(strings.NewReader(val.Query))
-		res, err := buf.Read([]string{"GET", "SET", "DEL", "QUIT", "EXIT"})
+		res, err := buf.Read([]string{"GET", "SET", "DEL", "QUIT", "EXIT"}, lg)
 		// error expected and present
 		if val.Error != nil && err != nil {
 			if err.Error() != val.Error.Error() {

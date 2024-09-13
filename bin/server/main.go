@@ -25,8 +25,6 @@ func main() {
 	logLevel.Set(slog.LevelDebug)
 	lg := slog.New(slog.NewTextHandler(os.Stdin, &slog.HandlerOptions{Level: logLevel}))
 
-	// Read cmd args
-
 	// Run app
 	run(&bp, &st, &comp, lg)
 }

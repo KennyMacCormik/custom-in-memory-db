@@ -50,7 +50,7 @@ func (bp *BuffParser) Read(vc []string, lg *slog.Logger) (Command, error) {
 }
 
 // trimArgs composes slice with only args present
-func trimArgs(s string) []string {
+func trimArgs(s string) Command {
 	// dunno how to parametrize \t
 	s = strings.ReplaceAll(s, "\t", sep)
 	arr := strings.Split(s, sep)
@@ -58,54 +58,54 @@ func trimArgs(s string) []string {
 		return s == ""
 	})
 
-	return arr
+	return Command{Command: arr[0], Args: arr[1:]}
 }
 
 // composeCommand returns valid Command struct
 func composeCommand(s string, vc []string) (Command, error) {
-	arr := trimArgs(s)
-	err := validateArgs(arr, vc)
+	result := trimArgs(s)
+	err := validateArgs(result, vc)
 	if err != nil {
 		return Command{}, fmt.Errorf("argument validation error: %w", err)
 	}
 
-	return Command{Command: arr[0], Args: arr[1:]}, nil
+	return result, nil
 }
 
 // validateArgs ensures only correct values are present in the input
-func validateArgs(arr []string, vc []string) error {
-	ln := len(arr)
+func validateArgs(c Command, vc []string) error {
+	ln := len(c.Args)
 	val := validator.New(validator.WithRequiredStructEnabled())
 	tag := "printascii,containsany=*_/|alphanum|numeric|alpha"
 
 	// command is valid
-	if !slices.Contains(vc, arr[0]) {
-		return fmt.Errorf("invalid command: %s", arr[0])
+	if !slices.Contains(vc, c.Command) {
+		return fmt.Errorf("invalid command: %s", c.Command)
 	}
 
 	// commands have necessary args
-	switch arr[0] {
+	switch c.Command {
 	case "GET":
-		if ln != 2 {
-			return fmt.Errorf("expected 2 arguments, got %d", ln)
-		}
-	case "DEL":
-		if ln != 2 {
-			return fmt.Errorf("expected 2 arguments, got %d", ln)
-		}
-	case "SET":
-		if ln != 3 {
-			return fmt.Errorf("expected 3 arguments, got %d", ln)
-		}
-	case "QUIT", "EXIT":
 		if ln != 1 {
 			return fmt.Errorf("expected 1 argument, got %d", ln)
+		}
+	case "DEL":
+		if ln != 1 {
+			return fmt.Errorf("expected 1 argument, got %d", ln)
+		}
+	case "SET":
+		if ln != 2 {
+			return fmt.Errorf("expected 2 arguments, got %d", ln)
+		}
+	case "QUIT", "EXIT":
+		if ln != 0 {
+			return fmt.Errorf("expected 0 arguments, got %d", ln)
 		}
 	}
 
 	// validate args
-	for i := 1; i < ln; i++ {
-		err := val.Var(arr[i], tag)
+	for i := 0; i < ln; i++ {
+		err := val.Var(c.Args[i], tag)
 		if err != nil {
 			return fmt.Errorf("invalid argument %d: expected %s", i+1, tag)
 		}
