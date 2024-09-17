@@ -1,6 +1,7 @@
 package main
 
 import (
+	"custom-in-memory-db/internal/server"
 	"custom-in-memory-db/internal/server/compute"
 	"custom-in-memory-db/internal/server/parser"
 	"custom-in-memory-db/internal/server/storage"
@@ -11,22 +12,34 @@ import (
 )
 
 func main() {
-	// Init
-	bp := parser.BuffParser{}
-	bp.New(os.Stdin)
-
-	comp := compute.Comp{}
-	comp.New()
-
-	st := _map.MapStorage{}
-	st.New()
-
+	// Init logger
 	var logLevel = new(slog.LevelVar)
 	logLevel.Set(slog.LevelDebug)
 	lg := slog.New(slog.NewTextHandler(os.Stdin, &slog.HandlerOptions{Level: logLevel}))
-
-	// Run app
-	run(&bp, &st, &comp, lg)
+	// Init config
+	conf := server.Config{}
+	err := conf.New()
+	if err != nil {
+		lg.Error("config init error", "error", err.Error())
+		panic(err)
+	}
+	// Init compute layer
+	bp := parser.BuffParser{}
+	bp.New(os.Stdin)
+	// Init parser
+	comp := compute.Comp{}
+	comp.New()
+	// Init storage
+	switch conf.Eng.Storage {
+	case "map":
+		st := _map.MapStorage{}
+		st.New()
+		// Run app
+		run(&bp, &st, &comp, lg)
+	default:
+		lg.Error("storage init error", "error", fmt.Sprintf("unknown storage: %s", conf.Eng.Storage))
+		panic(err)
+	}
 }
 
 func run(p parser.Parser, st storage.Storage, comp compute.Compute, lg *slog.Logger) {
