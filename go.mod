@@ -1,6 +1,6 @@
 module custom-in-memory-db
 
-go 1.22
+go 1.22.5
 
 require (
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
