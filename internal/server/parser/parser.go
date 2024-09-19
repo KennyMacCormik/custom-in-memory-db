@@ -10,39 +10,33 @@ import (
 	"strings"
 )
 
-const eol = '\n'
-const trim = " \t\n"
-const sep = " "
-
-type Parser interface {
-	Read(validCommands []string, lg *slog.Logger) (Command, error)
-}
+const Eol = '\n'
+const Trim = " \t\n"
+const Sep = " "
 
 type Command struct {
 	Command string
 	Args    []string
 }
 
-type BuffParser struct {
-	reader *bufio.Reader
+type Parser interface {
+	Read(validCommands []string, lg *slog.Logger) (Command, error)
 }
 
-// New creates new buffer to read input from
-func (bp *BuffParser) New(in io.Reader) {
-	bp.reader = bufio.NewReader(in)
-}
-
-// Read reads buffer input and tries to compose it into valid Command struct
-func (bp *BuffParser) Read(vc []string, lg *slog.Logger) (Command, error) {
-	in, err := bp.reader.ReadString(eol)
+// BufferRead implements reading from provided bufio.Reader.
+// Expects bufio.Reader to be initialized
+func BufferRead(reader *bufio.Reader, vc []string, lg *slog.Logger) (Command, error) {
+	in, err := reader.ReadString(Eol)
 	if err != nil && err != io.EOF {
-		return Command{}, fmt.Errorf("failed to read command: %w", err)
+		lg.Error("failed to read command", "error", err.Error())
+		return Command{}, fmt.Errorf("failed to read from connection: %w", err)
 	}
 
 	lg.Debug("logging cmd", "cmd", in)
 
-	r, err := composeCommand(strings.Trim(in, trim), vc)
+	r, err := composeCommand(strings.Trim(in, Trim), vc)
 	if err != nil {
+		lg.Error("parsing error", "error", err.Error())
 		return Command{}, fmt.Errorf("parsing error: %w", err)
 	}
 
@@ -52,8 +46,8 @@ func (bp *BuffParser) Read(vc []string, lg *slog.Logger) (Command, error) {
 // trimArgs composes slice with only args present
 func trimArgs(s string) Command {
 	// dunno how to parametrize \t
-	s = strings.ReplaceAll(s, "\t", sep)
-	arr := strings.Split(s, sep)
+	s = strings.ReplaceAll(s, "\t", Sep)
+	arr := strings.Split(s, Sep)
 	arr = slices.DeleteFunc(arr, func(s string) bool {
 		return s == ""
 	})

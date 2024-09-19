@@ -1,9 +1,10 @@
 package main
 
 import (
-	"custom-in-memory-db/internal/server"
+	"custom-in-memory-db/internal/server/cmd"
 	"custom-in-memory-db/internal/server/compute"
 	"custom-in-memory-db/internal/server/parser"
+	"custom-in-memory-db/internal/server/parser/stdin"
 	"custom-in-memory-db/internal/server/storage"
 	_map "custom-in-memory-db/internal/server/storage/map"
 	"fmt"
@@ -17,14 +18,14 @@ func main() {
 	logLevel.Set(slog.LevelDebug)
 	lg := slog.New(slog.NewTextHandler(os.Stdin, &slog.HandlerOptions{Level: logLevel}))
 	// Init config
-	conf := server.Config{}
+	conf := cmd.Config{}
 	err := conf.New()
 	if err != nil {
 		lg.Error("config init error", "error", err.Error())
 		panic(err)
 	}
 	// Init compute layer
-	bp := parser.BuffParser{}
+	bp := stdin.BuffParser{}
 	bp.New(os.Stdin)
 	// Init parser
 	comp := compute.Comp{}

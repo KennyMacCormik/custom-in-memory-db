@@ -1,12 +1,13 @@
-package parser
+package tcp
 
 import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
-	"strings"
 	"testing"
+	"time"
 )
 
 type testCase struct {
@@ -19,12 +20,54 @@ func toString(E interface{}) string {
 	return fmt.Sprintf("%v", E)
 }
 
-func TestBuffParser(t *testing.T) {
+func TestTcpParser_BogusIp(t *testing.T) {
+	var tcp TcpParser
+	err := tcp.New("1271.0.0.1", "8080", 10*time.Second)
+	if err.Error() != "tcp listener init error: listen tcp4: lookup 1271.0.0.1: no such host" {
+		t.Fatalf("Test failed. Cannot create tcp server: %v", err)
+	}
+}
+
+func TestTcpParser_BogusPort(t *testing.T) {
+	var tcp TcpParser
+	err := tcp.New("127.0.0.1", "80808080", 10*time.Second)
+	if err.Error() != "tcp listener init error: listen tcp4: address 80808080: invalid port" {
+		t.Fatalf("Test failed. Cannot create tcp server: %v", err)
+	}
+}
+
+func TestTcpParser_BusyPort(t *testing.T) {
+	var tcp, tcpFail TcpParser
+	err := tcp.New("127.0.0.1", "8080", 10*time.Second)
+	if err != nil {
+		t.Fatalf("Test failed. Cannot create tcp server: %v", err)
+	}
+	defer tcp.Close()
+	err = tcpFail.New("127.0.0.1", "8080", 10*time.Second)
+	if err.Error() != "tcp listener init error: listen tcp4 127.0.0.1:8080: bind: address already in use" {
+		t.Fatalf("Test failed. Cannot create tcp server: %v", err)
+	}
+}
+
+func TestTcpParser_ClosedListener(t *testing.T) {
 	var logLevel = new(slog.LevelVar)
 	logLevel.Set(slog.LevelDebug)
 	lg := slog.New(slog.NewTextHandler(os.Stdin, &slog.HandlerOptions{Level: logLevel}))
 
-	var buf BuffParser
+	var tcp TcpParser
+	err := tcp.New("127.0.0.1", "8080", 10*time.Second)
+	if err != nil {
+		t.Fatalf("Test failed. Cannot create tcp server: %v", err)
+	}
+	tcp.Close()
+
+	_, err = tcp.Read([]string{"GET", "SET", "DEL", "QUIT", "EXIT"}, lg)
+	if err.Error() != "accept tcp4 127.0.0.1:8080: use of closed network connection" {
+		t.Fatalf("Test failed. Unexpected error from closed listener: %v", err)
+	}
+}
+
+func TestTcpParser_GeneralCases(t *testing.T) {
 	var testCases = []testCase{
 		// basic commands
 		{
@@ -163,10 +206,36 @@ func TestBuffParser(t *testing.T) {
 			errors.New("parsing error: argument validation error: invalid argument 1: expected printascii,containsany=*_/|alphanum|numeric|alpha"),
 		},
 	}
+	var logLevel = new(slog.LevelVar)
+	logLevel.Set(slog.LevelDebug)
+	lg := slog.New(slog.NewTextHandler(os.Stdin, &slog.HandlerOptions{Level: logLevel}))
+
+	var tcp TcpParser
+	err := tcp.New("127.0.0.1", "8080", 10*time.Second)
+	if err != nil {
+		t.Fatalf("Test failed. Cannot create tcp server: %v", err)
+	}
+	defer tcp.Close()
 
 	for _, val := range testCases {
-		buf.New(strings.NewReader(val.Query))
-		res, err := buf.Read([]string{"GET", "SET", "DEL", "QUIT", "EXIT"}, lg)
+		conn, err := net.Dial("tcp", "127.0.0.1:8080")
+		if err != nil {
+			t.Fatalf("Test failed. Cannot dial tcp server: %v", err)
+		}
+		quit := make(chan bool)
+		go func() {
+			for {
+				select {
+				case <-quit:
+					return
+				default:
+					conn.Write([]byte(val.Query + "\n"))
+				}
+			}
+		}()
+
+		res, err := tcp.Read([]string{"GET", "SET", "DEL", "QUIT", "EXIT"}, lg)
+		quit <- true
 		// error expected and present
 		if val.Error != nil && err != nil {
 			if err.Error() != val.Error.Error() {

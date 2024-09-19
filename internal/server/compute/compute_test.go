@@ -1,7 +1,7 @@
 package compute
 
 import (
-	"custom-in-memory-db/internal/server/parser"
+	"custom-in-memory-db/internal/server/parser/stdin"
 	_map "custom-in-memory-db/internal/server/storage/map"
 	"log/slog"
 	"os"
@@ -57,7 +57,7 @@ func TestComp_HandleRequest(t *testing.T) {
 	}
 
 	for _, val := range testCases {
-		p := parser.BuffParser{}
+		p := stdin.BuffParser{}
 		p.New(strings.NewReader(val.Input))
 
 		res := comp.HandleRequest(&p, &st, lg)
