@@ -20,7 +20,9 @@ type Command struct {
 }
 
 type Parser interface {
-	Read(validCommands []string, lg *slog.Logger) (Command, error)
+	Read(validCommands []string, lg *slog.Logger) (Command, io.WriteCloser, error)
+	Write(response string, wc io.WriteCloser, lg *slog.Logger) error
+	Close() error
 }
 
 // BufferRead implements reading from provided bufio.Reader.

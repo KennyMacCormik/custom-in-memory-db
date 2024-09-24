@@ -1,6 +1,7 @@
 package stdin
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -25,6 +26,7 @@ func TestBuffParser(t *testing.T) {
 	lg := slog.New(slog.NewTextHandler(os.Stdin, &slog.HandlerOptions{Level: logLevel}))
 
 	var buf BuffParser
+	var out []byte
 	var testCases = []testCase{
 		// basic commands
 		{
@@ -45,12 +47,12 @@ func TestBuffParser(t *testing.T) {
 		{
 			"QUIT",
 			"{QUIT []}",
-			nil,
+			errors.New("parsing error: argument validation error: invalid command: QUIT"),
 		},
 		{
 			"EXIT",
 			"{EXIT []}",
-			nil,
+			errors.New("parsing error: argument validation error: invalid command: EXIT"),
 		},
 		// invalid amount of args
 		{
@@ -81,12 +83,12 @@ func TestBuffParser(t *testing.T) {
 		{
 			"QUIT 1",
 			"",
-			errors.New("parsing error: argument validation error: expected 0 arguments, got 1"),
+			errors.New("parsing error: argument validation error: invalid command: QUIT"),
 		},
 		{
 			"EXIT 2 2",
 			"",
-			errors.New("parsing error: argument validation error: expected 0 arguments, got 2"),
+			errors.New("parsing error: argument validation error: invalid command: EXIT"),
 		},
 		// invalid commands
 		{
@@ -165,8 +167,9 @@ func TestBuffParser(t *testing.T) {
 	}
 
 	for _, val := range testCases {
-		buf.New(strings.NewReader(val.Query))
-		res, err := buf.Read([]string{"GET", "SET", "DEL", "QUIT", "EXIT"}, lg)
+		//t.Logf("case %d: %v", i, val)
+		buf.New(strings.NewReader(val.Query), bytes.NewBuffer(out))
+		res, wc, err := buf.Read([]string{"GET", "SET", "DEL"}, lg)
 		// error expected and present
 		if val.Error != nil && err != nil {
 			if err.Error() != val.Error.Error() {
@@ -176,6 +179,7 @@ func TestBuffParser(t *testing.T) {
 		}
 		// error expected and NOT present
 		if val.Error != nil && err == nil {
+			wc.Close()
 			t.Errorf("case %v: expected error: %v, got no error", toString(val), val.Error)
 			continue
 		}
@@ -186,6 +190,7 @@ func TestBuffParser(t *testing.T) {
 		}
 		// error NOT expected and NOT present
 		if val.Error == nil && err == nil {
+			wc.Close()
 			if toString(res) != val.Expected {
 				t.Errorf("case %v: expected value: %v, got: %v", toString(val), val.Expected, res)
 				continue

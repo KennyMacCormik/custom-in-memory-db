@@ -22,8 +22,8 @@ func toString(E interface{}) string {
 
 func TestTcpParser_BogusIp(t *testing.T) {
 	var tcp TcpParser
-	err := tcp.New("1271.0.0.1", "8080", 10*time.Second)
-	if err.Error() != "tcp listener init error: listen tcp4: lookup 1271.0.0.1: no such host" {
+	err := tcp.New("0.0.0.1", "8080", 10*time.Second)
+	if err.Error() != "tcp listener init error: listen tcp4 0.0.0.1:8080: bind: can't assign requested address" {
 		t.Fatalf("Test failed. Cannot create tcp server: %v", err)
 	}
 }
@@ -61,8 +61,8 @@ func TestTcpParser_ClosedListener(t *testing.T) {
 	}
 	tcp.Close()
 
-	_, err = tcp.Read([]string{"GET", "SET", "DEL", "QUIT", "EXIT"}, lg)
-	if err.Error() != "accept tcp4 127.0.0.1:8080: use of closed network connection" {
+	_, _, err = tcp.Read([]string{"GET", "SET", "DEL"}, lg)
+	if err.Error() != "cannot accept connection: accept tcp4 127.0.0.1:8080: use of closed network connection" {
 		t.Fatalf("Test failed. Unexpected error from closed listener: %v", err)
 	}
 }
@@ -88,12 +88,12 @@ func TestTcpParser_GeneralCases(t *testing.T) {
 		{
 			"QUIT",
 			"{QUIT []}",
-			nil,
+			errors.New("parsing error: argument validation error: invalid command: QUIT"),
 		},
 		{
 			"EXIT",
 			"{EXIT []}",
-			nil,
+			errors.New("parsing error: argument validation error: invalid command: EXIT"),
 		},
 		// invalid amount of args
 		{
@@ -124,12 +124,12 @@ func TestTcpParser_GeneralCases(t *testing.T) {
 		{
 			"QUIT 1",
 			"",
-			errors.New("parsing error: argument validation error: expected 0 arguments, got 1"),
+			errors.New("parsing error: argument validation error: invalid command: QUIT"),
 		},
 		{
 			"EXIT 2 2",
 			"",
-			errors.New("parsing error: argument validation error: expected 0 arguments, got 2"),
+			errors.New("parsing error: argument validation error: invalid command: EXIT"),
 		},
 		// invalid commands
 		{
@@ -218,6 +218,7 @@ func TestTcpParser_GeneralCases(t *testing.T) {
 	defer tcp.Close()
 
 	for _, val := range testCases {
+		//t.Logf("case %d: %v", i, val)
 		conn, err := net.Dial("tcp", "127.0.0.1:8080")
 		if err != nil {
 			t.Fatalf("Test failed. Cannot dial tcp server: %v", err)
@@ -234,7 +235,7 @@ func TestTcpParser_GeneralCases(t *testing.T) {
 			}
 		}()
 
-		res, err := tcp.Read([]string{"GET", "SET", "DEL", "QUIT", "EXIT"}, lg)
+		res, wc, err := tcp.Read([]string{"GET", "SET", "DEL"}, lg)
 		quit <- true
 		// error expected and present
 		if val.Error != nil && err != nil {
@@ -245,6 +246,7 @@ func TestTcpParser_GeneralCases(t *testing.T) {
 		}
 		// error expected and NOT present
 		if val.Error != nil && err == nil {
+			wc.Close()
 			t.Errorf("case %v: expected error: %v, got no error", toString(val), val.Error)
 			continue
 		}
@@ -255,6 +257,7 @@ func TestTcpParser_GeneralCases(t *testing.T) {
 		}
 		// error NOT expected and NOT present
 		if val.Error == nil && err == nil {
+			wc.Close()
 			if toString(res) != val.Expected {
 				t.Errorf("case %v: expected value: %v, got: %v", toString(val), val.Expected, res)
 				continue

@@ -9,6 +9,7 @@ import (
 
 type Env struct {
 	Storage        string
+	Input          string
 	Address        string
 	Port           string
 	MaxConn        string
@@ -24,11 +25,13 @@ type TestCase struct {
 }
 
 // ENV vars present but contains wrong data
-func TestConfigAllEnvPresent(t *testing.T) {
+func TestCmd_AllEnvPresent(t *testing.T) {
 	var testCases = []TestCase{
+		// All ENV vars valid
 		{
 			Env{
 				"map",
+				"tcp4",
 				"127.0.0.1",
 				"8080",
 				"100",
@@ -37,7 +40,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -49,9 +52,11 @@ func TestConfigAllEnvPresent(t *testing.T) {
 			},
 			nil,
 		},
+		// One of ENV vars are invalid
 		{
 			Env{
 				"map1",
+				"tcp4",
 				"127.0.0.1",
 				"8080",
 				"100",
@@ -60,7 +65,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -75,6 +80,31 @@ func TestConfigAllEnvPresent(t *testing.T) {
 		{
 			Env{
 				"map",
+				"tcp44",
+				"127.0.0.1",
+				"8080",
+				"100",
+				"4",
+				"60s",
+				"text",
+			},
+			Config{
+				Engine{"map", "tcp4"},
+				Network{
+					"127.0.0.1",
+					8080,
+					100,
+					4,
+					60 * time.Second,
+				},
+				Logging{"text"},
+			},
+			errors.New("INPUT expected oneof=stdin tcp4, got tcp44"),
+		},
+		{
+			Env{
+				"map",
+				"tcp4",
 				"127.0.0.1111",
 				"8080",
 				"100",
@@ -83,7 +113,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -98,6 +128,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 		{
 			Env{
 				"map",
+				"tcp4",
 				"127.0.0.1",
 				"8080a",
 				"100",
@@ -106,7 +137,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -121,6 +152,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 		{
 			Env{
 				"map",
+				"tcp4",
 				"127.0.0.1",
 				"8080",
 				"100a",
@@ -129,7 +161,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -144,6 +176,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 		{
 			Env{
 				"map",
+				"tcp4",
 				"127.0.0.1",
 				"8080",
 				"100",
@@ -152,7 +185,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -167,6 +200,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 		{
 			Env{
 				"map",
+				"tcp4",
 				"127.0.0.1",
 				"8080",
 				"100",
@@ -175,7 +209,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -190,6 +224,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 		{
 			Env{
 				"map",
+				"tcp4",
 				"127.0.0.1",
 				"8080",
 				"100",
@@ -198,7 +233,7 @@ func TestConfigAllEnvPresent(t *testing.T) {
 				"texts",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -222,11 +257,13 @@ func TestConfigAllEnvPresent(t *testing.T) {
 }
 
 // ENV vars missing
-func TestConfigEnvMissing(t *testing.T) {
+func TestCmd_EnvMissing(t *testing.T) {
 	var testCases = []TestCase{
+		// One of ENV vars are missing
 		{
 			Env{
 				"",
+				"tcp4",
 				"127.0.0.1",
 				"8080",
 				"100",
@@ -235,7 +272,7 @@ func TestConfigEnvMissing(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -251,6 +288,7 @@ func TestConfigEnvMissing(t *testing.T) {
 			Env{
 				"map",
 				"",
+				"127.0.0.1",
 				"8080",
 				"100",
 				"4",
@@ -258,7 +296,31 @@ func TestConfigEnvMissing(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
+				Network{
+					"127.0.0.1",
+					8080,
+					100,
+					4,
+					60 * time.Second,
+				},
+				Logging{"text"},
+			},
+			nil,
+		},
+		{
+			Env{
+				"map",
+				"tcp4",
+				"",
+				"8080",
+				"100",
+				"4",
+				"60s",
+				"text",
+			},
+			Config{
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -273,6 +335,7 @@ func TestConfigEnvMissing(t *testing.T) {
 		{
 			Env{
 				"map",
+				"tcp4",
 				"127.0.0.1",
 				"",
 				"100",
@@ -281,7 +344,7 @@ func TestConfigEnvMissing(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -296,6 +359,7 @@ func TestConfigEnvMissing(t *testing.T) {
 		{
 			Env{
 				"map",
+				"tcp4",
 				"127.0.0.1",
 				"8080",
 				"",
@@ -304,7 +368,7 @@ func TestConfigEnvMissing(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -319,6 +383,7 @@ func TestConfigEnvMissing(t *testing.T) {
 		{
 			Env{
 				"map",
+				"tcp4",
 				"127.0.0.1",
 				"8080",
 				"100",
@@ -327,7 +392,7 @@ func TestConfigEnvMissing(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -342,6 +407,7 @@ func TestConfigEnvMissing(t *testing.T) {
 		{
 			Env{
 				"map",
+				"tcp4",
 				"127.0.0.1",
 				"8080",
 				"100",
@@ -350,7 +416,7 @@ func TestConfigEnvMissing(t *testing.T) {
 				"text",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -365,6 +431,7 @@ func TestConfigEnvMissing(t *testing.T) {
 		{
 			Env{
 				"map",
+				"tcp4",
 				"127.0.0.1",
 				"8080",
 				"100",
@@ -373,7 +440,7 @@ func TestConfigEnvMissing(t *testing.T) {
 				"",
 			},
 			Config{
-				Engine{"map"},
+				Engine{"map", "tcp4"},
 				Network{
 					"127.0.0.1",
 					8080,
@@ -399,6 +466,9 @@ func TestConfigEnvMissing(t *testing.T) {
 func setEnv(t TestCase) {
 	if t.Envs.Storage != "" {
 		_ = os.Setenv("STORAGE", t.Envs.Storage)
+	}
+	if t.Envs.Input != "" {
+		_ = os.Setenv("INPUT", t.Envs.Input)
 	}
 	if t.Envs.Address != "" {
 		_ = os.Setenv("ADDR", t.Envs.Address)

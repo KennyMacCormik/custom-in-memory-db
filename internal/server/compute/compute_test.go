@@ -1,6 +1,7 @@
 package compute
 
 import (
+	"bytes"
 	"custom-in-memory-db/internal/server/parser/stdin"
 	_map "custom-in-memory-db/internal/server/storage/map"
 	"log/slog"
@@ -18,6 +19,7 @@ func TestComp_HandleRequest(t *testing.T) {
 	comp := Comp{}
 	comp.New()
 
+	// mock this
 	st := _map.MapStorage{}
 	st.New()
 
@@ -25,6 +27,7 @@ func TestComp_HandleRequest(t *testing.T) {
 	logLevel.Set(slog.LevelDebug)
 	lg := slog.New(slog.NewTextHandler(os.Stdin, &slog.HandlerOptions{Level: logLevel}))
 
+	var out []byte
 	var testCases = []testCase{
 		{
 			"GET 1",
@@ -58,10 +61,10 @@ func TestComp_HandleRequest(t *testing.T) {
 
 	for _, val := range testCases {
 		p := stdin.BuffParser{}
-		p.New(strings.NewReader(val.Input))
+		p.New(strings.NewReader(val.Input), bytes.NewBuffer(out))
 
 		res := comp.HandleRequest(&p, &st, lg)
-		if res != val.Expected {
+		if res.Error() != val.Expected {
 			t.Errorf("input %v, expected %s, got %s", val, val.Expected, res)
 		}
 	}

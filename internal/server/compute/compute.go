@@ -7,17 +7,8 @@ import (
 	"log/slog"
 )
 
-// I need to return something to run loop. Why not this? I'm already logging everything.
-const Ok = "ok"
-const Stop = "Stop"
-const ErrParse = "ErrParce"
-const ErrGet = "ErrGet"
-const ErrSet = "ErrSet"
-const ErrDel = "ErrDel"
-const ErrUnexpectedCommand = "UnexpectedCommand"
-
 type Compute interface {
-	HandleRequest(p parser.Parser, st storage.Storage, lg *slog.Logger) string
+	HandleRequest(p parser.Parser, st storage.Storage, lg *slog.Logger) error
 }
 
 type Comp struct {
@@ -25,47 +16,57 @@ type Comp struct {
 }
 
 func (c *Comp) New() {
-	c.validCommands = []string{"GET", "SET", "DEL", "QUIT", "EXIT"}
+	c.validCommands = []string{"GET", "SET", "DEL"}
 }
 
-func (c *Comp) HandleRequest(p parser.Parser, st storage.Storage, lg *slog.Logger) string {
+func (c *Comp) HandleRequest(p parser.Parser, st storage.Storage, lg *slog.Logger) error {
+	var r string
+	var err error
 	// unique id for a request
 	lg = lg.With("ID", uuid.New())
 
-	comm, err := p.Read(c.validCommands, lg)
+	comm, wc, err := p.Read(c.validCommands, lg)
 	if err != nil {
-		lg.Error(ErrParse, "error", err.Error())
-		return ErrParse
+		lg.Error("failed reading command", "error", err.Error())
+		return err
 	}
+	defer wc.Close()
 
 	switch comm.Command {
 	case "GET":
-		r, err := st.Get(comm)
+		r, err = st.Get(comm)
 		if err != nil {
-			lg.Error(ErrGet, "error", err.Error())
-			return ErrGet
+			lg.Error("failed to execute GET request", "error", err.Error())
+			// Is it safe to ignore Write error?
+			_ = p.Write(err.Error(), wc, lg)
+			return err
 		}
-		lg.Debug(Ok)
-		return r
+		// Is it safe to ignore Write error?
+		_ = p.Write(r, wc, lg)
+		return nil
 	case "SET":
-		err := st.Set(comm)
+		err = st.Set(comm)
 		if err != nil {
-			lg.Error(ErrSet, "error", err.Error())
-			return ErrSet
+			lg.Error("failed to execute SET request", "error", err.Error())
+			// Is it safe to ignore Write error?
+			_ = p.Write(err.Error(), wc, lg)
+			return err
 		}
-		lg.Debug(Ok)
-		return Ok
+		// Is it safe to ignore Write error?
+		_ = p.Write("OK", wc, lg)
+		return nil
 	case "DEL":
-		err := st.Del(comm)
+		err = st.Del(comm)
 		if err != nil {
-			lg.Error(ErrDel, "error", err.Error())
-			return ErrDel
+			lg.Error("failed to execute DEL request", "error", err.Error())
+			// Is it safe to ignore Write error?
+			_ = p.Write(err.Error(), wc, lg)
+			return err
 		}
-		lg.Debug(Ok)
-		return Ok
-	case "EXIT", "QUIT":
-		return Stop
+		// Is it safe to ignore Write error?
+		_ = p.Write("OK", wc, lg)
+		return nil
+	default:
+		return nil
 	}
-	lg.Error(ErrUnexpectedCommand)
-	return ErrUnexpectedCommand
 }

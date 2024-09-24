@@ -10,6 +10,7 @@ import (
 
 type Engine struct {
 	Storage string `env:"STORAGE" env-required:"true" env-description:"storage driver"`
+	Input   string `env:"INPUT" env-default:"tcp4" env-description:"how server accept commands"`
 }
 
 type Network struct {
@@ -78,7 +79,18 @@ func validateOptional() error {
 		}
 	}
 
+	val = "INPUT"
+	tag = "oneof=stdin tcp4"
+	env = os.Getenv(val)
+	if env != "" {
+		err = validate.Var(env, tag)
+		if err != nil {
+			return fmt.Errorf(errMsg, val, tag, env)
+		}
+	}
+
 	val = "MESSAGE_SIZE"
+	tag = "number"
 	env = os.Getenv(val)
 	if env != "" {
 		err = validate.Var(env, tag)
