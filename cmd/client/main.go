@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 type CmdInput struct {
@@ -23,13 +25,12 @@ func main() {
 		fmt.Println(fmt.Errorf("cannot dial tcp server: %w", err).Error())
 		os.Exit(1)
 	}
-	/*
-		err = conn.SetDeadline(time.Now().Add(10 * time.Second))
-		if err != nil {
-			fmt.Println(fmt.Errorf("cannot set deadline: %w", err))
-			os.Exit(1)
-		}
-	*/
+
+	err = conn.SetDeadline(time.Now().Add(10000 * time.Second))
+	if err != nil {
+		fmt.Println(fmt.Errorf("cannot set deadline: %w", err))
+		os.Exit(1)
+	}
 
 	_, err = conn.Write([]byte(cmnd.Cmd))
 	if err != nil {
@@ -37,15 +38,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	/*
-		resp := make([]byte, 1024)
-		_, err = conn.Read(resp)
-		if err != nil {
+	var n int
+	resp := make([]byte, 4096)
+	for n == 0 {
+		n, err = conn.Read(resp)
+		if err != nil && err != io.EOF {
 			fmt.Println(fmt.Errorf("cannot read response: %w", err).Error())
 			os.Exit(1)
 		}
-
-	*/
+	}
+	fmt.Println(string(resp))
 }
 
 func ReadFlags() CmdInput {
@@ -54,6 +56,7 @@ func ReadFlags() CmdInput {
 	bindFlags(&result)
 	flag.Parse()
 	result.Cmd = strings.Join(flag.Args(), " ")
+	result.Cmd += "\n"
 
 	return result
 }

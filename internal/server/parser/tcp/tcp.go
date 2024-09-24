@@ -60,12 +60,11 @@ func (t *TcpParser) Read(vc []string, lg *slog.Logger) (parser.Command, io.Write
 	lg.Debug("connection accepted", "ip", conn.RemoteAddr().String())
 	lg.Debug("conn deadline set", "value", t.deadline.String())
 
-	r := bufio.NewReader(conn)
-	result, err := parser.BufferRead(r, vc, lg)
+	result, err := parser.BufferRead(bufio.NewReader(conn), vc, lg)
 	if err != nil {
-		msg = "cannot read connection"
+		msg = "read command error"
 		lg.Error(msg, "error", err.Error())
-		return parser.Command{}, nil, err
+		return parser.Command{}, conn, err
 	}
 
 	return result, conn, nil
