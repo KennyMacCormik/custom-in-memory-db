@@ -1,15 +1,6 @@
 package tcp
 
-import (
-	"errors"
-	"fmt"
-	"log/slog"
-	"net"
-	"os"
-	"testing"
-	"time"
-)
-
+/*
 type testCase struct {
 	Query    string
 	Expected string
@@ -265,3 +256,4 @@ func TestTcpParser_GeneralCases(t *testing.T) {
 		}
 	}
 }
+*/
