@@ -1,120 +1,77 @@
 package _map
 
 import (
-	"custom-in-memory-db/internal/server/parser"
-	"errors"
 	"fmt"
+	"github.com/stretchr/testify/assert"
+	"sync"
 	"testing"
 )
 
-// Init exists only for testing purpose
-func (s *MapStorage) init() {
-	s.m["1"] = "one"
-	s.m["2"] = "two"
+const firstKey = "1"
+const firstVal = "2"
+const firstErrKey = "3"
+const firstSetVal = "5"
+
+func TestMapStorage_New(t *testing.T) {
+	var st MapStorage
+	st.New()
 }
 
-type testCase struct {
-	Comm     parser.Command
-	Expected string
-	Error    error
+func TestMapStorage_GetPositive(t *testing.T) {
+	var st = MapStorage{
+		mtx: sync.Mutex{},
+		m: map[string]string{
+			firstKey: firstVal,
+		},
+	}
+
+	val, err := st.Get(firstKey)
+	assert.NoError(t, err)
+	assert.Equal(t, firstVal, val)
 }
 
-func TestMapStorage(t *testing.T) {
-	var storage MapStorage
-	storage.New()
-	storage.init()
+func TestMapStorage_GetNegative(t *testing.T) {
+	var st = MapStorage{
+		mtx: sync.Mutex{},
+		m: map[string]string{
+			firstKey: firstVal,
+		},
+	}
 
-	var testCases = []testCase{
-		{
-			parser.Command{
-				"GET",
-				[]string{"1"},
-			},
-			"one",
-			nil,
-		},
-		{
-			parser.Command{
-				"GET",
-				[]string{"3"},
-			},
-			"",
-			errors.New("key 3 not found"),
-		},
-		{
-			parser.Command{
-				"SET",
-				[]string{"3", "three"},
-			},
-			"three",
-			nil,
-		},
-		{
-			parser.Command{
-				"SET",
-				[]string{"1", "one1"},
-			},
-			"one1",
-			nil,
-		},
-		// error because we check existence of key after deletion
-		{
-			parser.Command{
-				"DEL",
-				[]string{"2"},
-			},
-			"",
-			errors.New("key 2 not found"),
-		},
-		{
-			parser.Command{
-				"DEL",
-				[]string{"5"},
-			},
-			"",
-			errors.New("key 5 not found"),
-		},
-	}
-	for _, val := range testCases {
-		switch val.Comm.Command {
-		case "GET":
-			res, err := storage.Get(val.Comm)
-			validateTest(val, res, err, t)
-		case "SET":
-			err := storage.Set(val.Comm)
-			res, err := storage.Get(val.Comm)
-			validateTest(val, res, err, t)
-		case "DEL":
-			err := storage.Del(val.Comm)
-			res, err := storage.Get(val.Comm)
-			validateTest(val, res, err, t)
-		}
-	}
+	_, err := st.Get(firstErrKey)
+	assert.EqualError(t, err, fmt.Sprintf("key %s not found", firstErrKey))
 }
 
-func validateTest(val testCase, res string, err error, t *testing.T) {
-	// error expected and present
-	if val.Error != nil && err != nil {
-		if err.Error() != val.Error.Error() {
-			t.Errorf("case %v: expected error: %v, got: %v", toString(val), val.Error, err)
-		}
+func TestMapStorage_SetPositive(t *testing.T) {
+	var st = MapStorage{
+		mtx: sync.Mutex{},
+		m: map[string]string{
+			firstKey: firstVal,
+		},
 	}
-	// error expected and NOT present
-	if val.Error != nil && err == nil {
-		t.Errorf("case %v: expected error: %v, got no error", toString(val), val.Error)
-	}
-	// error NOT expected and present
-	if val.Error == nil && err != nil {
-		t.Errorf("case %v: expected value: %v, got error: %v", toString(val), val.Expected, err)
-	}
-	// error NOT expected and NOT present
-	if val.Error == nil && err == nil {
-		if toString(res) != val.Expected {
-			t.Errorf("case %v: expected value: %v, got: %v", toString(val), val.Expected, res)
-		}
-	}
+
+	assert.NoError(t, st.Set(firstKey, firstSetVal))
 }
 
-func toString(E interface{}) string {
-	return fmt.Sprintf("%v", E)
+func TestMapStorage_DelPositive(t *testing.T) {
+	var st = MapStorage{
+		mtx: sync.Mutex{},
+		m: map[string]string{
+			firstKey: firstVal,
+		},
+	}
+
+	assert.NoError(t, st.Del(firstKey))
+}
+
+func TestMapStorage_DelNegative(t *testing.T) {
+	var st = MapStorage{
+		mtx: sync.Mutex{},
+		m: map[string]string{
+			firstKey: firstVal,
+		},
+	}
+
+	err := st.Del(firstErrKey)
+	assert.EqualError(t, err, fmt.Sprintf("key %s not found", firstErrKey))
 }

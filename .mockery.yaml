@@ -1,0 +1,8 @@
+with-expecter: true
+inpackage: true
+packages:
+  custom-in-memory-db/internal/server/storage:
+    interfaces:
+      Storage:
+        config:
+          dir: "internal/server/storage"
