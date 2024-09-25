@@ -12,10 +12,12 @@ type Compute interface {
 	Exec(cmd parser.Command) (string, error)
 }
 
+// Instance of the Compute interface
 type Comp struct {
 	st storage.Storage
 }
 
+// New initializes Comp with storage interface it will be working with
 func (c *Comp) New(st storage.Storage) {
 	c.st = st
 }
