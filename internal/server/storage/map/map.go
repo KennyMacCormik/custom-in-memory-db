@@ -1,42 +1,46 @@
 package _map
 
 import (
-	"custom-in-memory-db/internal/server/parser"
 	"fmt"
+	"sync"
 )
 
 type MapStorage struct {
-	m map[string]string
+	mtx sync.Mutex
+	m   map[string]string
 }
 
 func (s *MapStorage) New() {
 	s.m = make(map[string]string)
 }
 
-// At this point only valid parser.Command struct present
-
-func (s *MapStorage) Get(c parser.Command) (string, error) {
-	val, ok := s.m[c.Args[0]]
+func (s *MapStorage) Get(key string) (string, error) {
+	s.mtx.Lock()
+	val, ok := s.m[key]
+	s.mtx.Unlock()
 	if !ok {
-		return "", fmt.Errorf("key %s not found", c.Args[0])
+		return "", fmt.Errorf("key %s not found", key)
 	}
 
 	return val, nil
 }
 
-func (s *MapStorage) Set(c parser.Command) error {
-	s.m[c.Args[0]] = c.Args[1]
-
+func (s *MapStorage) Set(key, value string) error {
+	s.mtx.Lock()
+	s.m[key] = value
+	s.mtx.Unlock()
 	return nil
 }
 
-func (s *MapStorage) Del(c parser.Command) error {
-	_, ok := s.m[c.Args[0]]
+func (s *MapStorage) Del(key string) error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	_, ok := s.m[key]
 	if !ok {
-		return fmt.Errorf("key %s not found", c.Args[0])
+		return fmt.Errorf("key %s not found", key)
 	}
 
-	delete(s.m, c.Args[0])
+	delete(s.m, key)
 
 	return nil
 }

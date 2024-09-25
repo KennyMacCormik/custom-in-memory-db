@@ -19,30 +19,24 @@ type Command struct {
 	Args    []string
 }
 
-type Parser interface {
-	Read(validCommands []string, lg *slog.Logger) (Command, io.WriteCloser, error)
-	Write(response string, wc io.WriteCloser, lg *slog.Logger) error
-	Close() error
-}
+func Read(r io.Reader, lg *slog.Logger) (Command, error) {
+	bufR := bufio.NewReader(r)
 
-// BufferRead implements reading from provided bufio.Reader.
-// Expects bufio.Reader to be initialized
-func BufferRead(reader *bufio.Reader, vc []string, lg *slog.Logger) (Command, error) {
-	in, err := reader.ReadString(Eol)
+	str, err := bufR.ReadString(Eol)
 	if err != nil && err != io.EOF {
-		lg.Error("failed to read command", "error", err.Error())
-		return Command{}, fmt.Errorf("failed to read from connection: %w", err)
+		lg.Error("failed to read from reader", "error", err.Error())
+		return Command{}, err
 	}
 
-	lg.Debug("logging cmd", "cmd", in)
+	lg.Debug("reader input", "input", str)
 
-	r, err := composeCommand(strings.Trim(in, Trim), vc)
+	cmd, err := composeCommand(strings.Trim(str, Trim))
 	if err != nil {
 		lg.Error("parsing error", "error", err.Error())
-		return Command{}, fmt.Errorf("parsing error: %w", err)
+		return Command{}, err
 	}
 
-	return r, nil
+	return cmd, nil
 }
 
 // trimArgs composes slice with only args present
@@ -58,9 +52,9 @@ func trimArgs(s string) Command {
 }
 
 // composeCommand returns valid Command struct
-func composeCommand(s string, vc []string) (Command, error) {
+func composeCommand(s string) (Command, error) {
 	result := trimArgs(s)
-	err := validateArgs(result, vc)
+	err := validateArgs(result)
 	if err != nil {
 		return Command{}, fmt.Errorf("argument validation error: %w", err)
 	}
@@ -69,15 +63,10 @@ func composeCommand(s string, vc []string) (Command, error) {
 }
 
 // validateArgs ensures only correct values are present in the input
-func validateArgs(c Command, vc []string) error {
+func validateArgs(c Command) error {
 	ln := len(c.Args)
 	val := validator.New(validator.WithRequiredStructEnabled())
 	tag := "printascii,containsany=*_/|alphanum|numeric|alpha"
-
-	// command is valid
-	if !slices.Contains(vc, c.Command) {
-		return fmt.Errorf("invalid command: %s", c.Command)
-	}
 
 	// commands have necessary args
 	switch c.Command {
@@ -93,10 +82,8 @@ func validateArgs(c Command, vc []string) error {
 		if ln != 2 {
 			return fmt.Errorf("expected 2 arguments, got %d", ln)
 		}
-	case "QUIT", "EXIT":
-		if ln != 0 {
-			return fmt.Errorf("expected 0 arguments, got %d", ln)
-		}
+	default:
+		return fmt.Errorf("invalid command: %s", c.Command)
 	}
 
 	// validate args
