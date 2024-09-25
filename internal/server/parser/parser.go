@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"io"
@@ -53,6 +54,10 @@ func trimArgs(s string) Command {
 
 // composeCommand returns valid Command struct
 func composeCommand(s string) (Command, error) {
+	if s == "" {
+		return Command{}, errors.New("empty command")
+	}
+
 	result := trimArgs(s)
 	err := validateArgs(result)
 	if err != nil {

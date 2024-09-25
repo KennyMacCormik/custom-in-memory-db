@@ -3,6 +3,7 @@ package compute
 import (
 	"custom-in-memory-db/internal/server/parser"
 	"custom-in-memory-db/internal/server/storage"
+	"errors"
 	"fmt"
 )
 
@@ -42,7 +43,7 @@ func (c *Comp) Exec(cmd parser.Command) (string, error) {
 			return "", fmt.Errorf("error deleting value: %v", err)
 		}
 		return defaultOk, nil
+	default:
+		return "", errors.New("unknown command")
 	}
-
-	return "", nil
 }
