@@ -3,7 +3,7 @@
 package compute
 
 import (
-	parser "custom-in-memory-db/internal/server/parser"
+	parser "custom-in-memory-db/internal/server/db/parser"
 
 	mock "github.com/stretchr/testify/mock"
 )

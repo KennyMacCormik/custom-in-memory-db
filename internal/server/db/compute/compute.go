@@ -1,8 +1,8 @@
 package compute
 
 import (
-	"custom-in-memory-db/internal/server/parser"
-	"custom-in-memory-db/internal/server/storage"
+	"custom-in-memory-db/internal/server/db/parser"
+	"custom-in-memory-db/internal/server/db/storage"
 	"errors"
 	"fmt"
 )

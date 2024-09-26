@@ -1,12 +1,12 @@
 with-expecter: true
 inpackage: true
 packages:
-  custom-in-memory-db/internal/server/storage:
+  custom-in-memory-db/internal/server/db/storage:
     interfaces:
       Storage:
         config:
           dir: "mocks/storage"
-  custom-in-memory-db/internal/server/compute:
+  custom-in-memory-db/internal/server/db/compute:
     interfaces:
       Compute:
         config:
