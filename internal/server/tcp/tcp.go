@@ -11,21 +11,26 @@ import (
 	"time"
 )
 
-const goMax = 100
-
 type Server struct {
 	listener net.Listener
 	deadline time.Duration
+	maxConn  int
+	lg       *slog.Logger
+}
 
-	lg *slog.Logger
-
+type connMeter struct {
 	currConn int
 	maxConn  int
 	mtx      sync.Mutex
 	cond     *sync.Cond
 }
 
-func (s *Server) New(ip, port string, deadline time.Duration, lg *slog.Logger) error {
+func (c *connMeter) New(maxConn int) {
+	c.maxConn = maxConn
+	c.cond = sync.NewCond(&c.mtx)
+}
+
+func (s *Server) New(ip, port string, deadline time.Duration, maxConn int, lg *slog.Logger) error {
 	var err error
 
 	s.listener, err = net.Listen("tcp4", ip+":"+port)
@@ -33,12 +38,9 @@ func (s *Server) New(ip, port string, deadline time.Duration, lg *slog.Logger) e
 		return fmt.Errorf("tcp listener init error: %w", err)
 	}
 	s.deadline = deadline
-
+	s.maxConn = maxConn
 	s.lg = lg
 
-	s.currConn = 0
-	s.maxConn = goMax
-	s.cond = sync.NewCond(&s.mtx)
 	return nil
 }
 
@@ -48,6 +50,11 @@ func (s *Server) Close() error {
 
 func (s *Server) Listen(c compute.Compute) {
 	var msg string
+	var cm connMeter
+	if s.maxConn > 0 {
+		cm.New(s.maxConn)
+	}
+
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
@@ -55,21 +62,21 @@ func (s *Server) Listen(c compute.Compute) {
 			s.lg.Error(msg, "error", err.Error())
 		}
 
-		s.incConnCount()
-		go s.handleClient(conn, c)
+		cm.incConnCount()
+		go handleClient(conn, s.deadline, c, &cm, s.lg)
 	}
 }
 
-func (s *Server) handleClient(conn net.Conn, c compute.Compute) {
-	defer s.decConnCount()
+func handleClient(conn net.Conn, deadline time.Duration, c compute.Compute, cm *connMeter, lg *slog.Logger) {
+	defer cm.decConnCount()
 	defer conn.Close()
 
-	lg := s.lg.With("ID", uuid.New(), "remoteAddr", conn.RemoteAddr().String())
+	ilg := lg.With("ID", uuid.New(), "remoteAddr", conn.RemoteAddr().String())
 
-	err := conn.SetDeadline(time.Now().Add(s.deadline))
+	err := conn.SetDeadline(time.Now().Add(deadline))
 	// how to unit-test this????
 	if err != nil {
-		lg.Error("connection deadline cannot be set", "error", err.Error())
+		ilg.Error("connection deadline cannot be set", "error", err.Error())
 	}
 
 	handleCommand(conn, c, lg)
@@ -101,22 +108,22 @@ func handleCommand(conn net.Conn, c compute.Compute, lg *slog.Logger) {
 }
 
 // lock only allows further execution if goNum is less than goMax
-func (s *Server) incConnCount() {
-	s.cond.L.Lock()
-	defer s.cond.L.Unlock()
+func (c *connMeter) incConnCount() {
+	c.cond.L.Lock()
+	defer c.cond.L.Unlock()
 
-	for s.currConn == s.maxConn {
-		s.cond.Wait()
+	for c.currConn == c.maxConn {
+		c.cond.Wait()
 	}
 
-	s.currConn++
+	c.currConn++
 }
 
 // unlock decrements goNum and calls waiting main.go
-func (s *Server) decConnCount() {
-	s.cond.L.Lock()
-	defer s.cond.L.Unlock()
+func (c *connMeter) decConnCount() {
+	c.cond.L.Lock()
+	defer c.cond.L.Unlock()
 
-	s.currConn--
-	s.cond.Signal()
+	c.currConn--
+	c.cond.Signal()
 }

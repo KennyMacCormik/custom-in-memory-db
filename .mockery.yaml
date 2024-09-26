@@ -6,6 +6,11 @@ packages:
       Storage:
         config:
           dir: "mocks/storage"
+  custom-in-memory-db/internal/server/compute:
+    interfaces:
+      Compute:
+        config:
+          dir: "mocks/compute"
   io:
     interfaces:
       Reader:

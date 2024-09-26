@@ -1,14 +1,13 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"io"
-	"net"
 	"os"
-	"strings"
-	"time"
+	"strconv"
 )
+
+const net = "tcp"
+const errExit = 1
 
 type CmdInput struct {
 	Address string
@@ -17,54 +16,14 @@ type CmdInput struct {
 }
 
 func main() {
-	// read flags
-	cmnd := ReadFlags()
+	// read cmdline input
+	cmdInput := ReadFlags()
 
-	conn, err := net.Dial("tcp", "127.0.0.1:8080")
+	result, err := invokeTCP(net, cmdInput.Address, strconv.Itoa(cmdInput.Port), cmdInput.Cmd)
 	if err != nil {
-		fmt.Println(fmt.Errorf("cannot dial tcp server: %w", err).Error())
-		os.Exit(1)
+		fmt.Println(fmt.Errorf("tcp error: %w", err))
+		os.Exit(errExit)
 	}
 
-	err = conn.SetDeadline(time.Now().Add(10000 * time.Second))
-	if err != nil {
-		fmt.Println(fmt.Errorf("cannot set deadline: %w", err))
-		os.Exit(1)
-	}
-
-	_, err = conn.Write([]byte(cmnd.Cmd))
-	if err != nil {
-		fmt.Println(fmt.Errorf("cannot send command: %w", err).Error())
-		os.Exit(1)
-	}
-
-	var n int
-	resp := make([]byte, 4096)
-	for n == 0 {
-		n, err = conn.Read(resp)
-		if err != nil && err != io.EOF {
-			fmt.Println(fmt.Errorf("cannot read response: %w", err).Error())
-			os.Exit(1)
-		}
-	}
-	fmt.Println(string(resp))
-}
-
-func ReadFlags() CmdInput {
-	result := CmdInput{}
-
-	bindFlags(&result)
-	flag.Parse()
-	result.Cmd = strings.Join(flag.Args(), " ")
-	result.Cmd += "\n"
-
-	return result
-}
-
-func bindFlags(c *CmdInput) {
-	flag.StringVar(&c.Address, "address", "127.0.0.1", "Address to bind to")
-	flag.StringVar(&c.Address, "a", "127.0.0.1", "Address to bind to")
-
-	flag.IntVar(&c.Port, "port", 8080, "Port to bind to")
-	flag.IntVar(&c.Port, "p", 8080, "Port to bind to")
+	fmt.Println(string(result))
 }
