@@ -107,7 +107,9 @@ func (s *Server) handleClient(conn net.Conn, cm *connMeter, f Handler, lg *slog.
 		_, err = conn.Write([]byte(err.Error()))
 		if err != nil {
 			ilg.Error("connection writing error", "error", err.Error())
+			return
 		}
+		return
 	}
 
 	_, err = conn.Write([]byte(result))

@@ -44,3 +44,5 @@ func (s *MapStorage) Del(key string) error {
 
 	return nil
 }
+
+func (s *MapStorage) Close() {}
