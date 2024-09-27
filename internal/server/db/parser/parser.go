@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"io"
@@ -10,50 +11,40 @@ import (
 	"strings"
 )
 
-const eol = '\n'
-const trim = " \t\n"
-const sep = " "
-
-type Parser interface {
-	Read(validCommands []string, lg *slog.Logger) (Command, error)
-}
+const Eol = '\n'
+const Trim = " \t\n"
+const Sep = " "
 
 type Command struct {
 	Command string
 	Args    []string
 }
 
-type BuffParser struct {
-	reader *bufio.Reader
-}
+func Read(r io.Reader, lg *slog.Logger) (Command, error) {
+	bufR := bufio.NewReader(r)
 
-// New creates new buffer to read input from
-func (bp *BuffParser) New(in io.Reader) {
-	bp.reader = bufio.NewReader(in)
-}
-
-// Read reads buffer input and tries to compose it into valid Command struct
-func (bp *BuffParser) Read(vc []string, lg *slog.Logger) (Command, error) {
-	in, err := bp.reader.ReadString(eol)
+	str, err := bufR.ReadString(Eol)
 	if err != nil && err != io.EOF {
-		return Command{}, fmt.Errorf("failed to read command: %w", err)
+		lg.Error("failed to read from reader", "error", err.Error())
+		return Command{}, err
 	}
 
-	lg.Debug("logging cmd", "cmd", in)
+	lg.Debug("reader input", "input", str)
 
-	r, err := composeCommand(strings.Trim(in, trim), vc)
+	cmd, err := composeCommand(strings.Trim(str, Trim))
 	if err != nil {
-		return Command{}, fmt.Errorf("parsing error: %w", err)
+		lg.Error("parsing error", "error", err.Error())
+		return Command{}, err
 	}
 
-	return r, nil
+	return cmd, nil
 }
 
 // trimArgs composes slice with only args present
 func trimArgs(s string) Command {
 	// dunno how to parametrize \t
-	s = strings.ReplaceAll(s, "\t", sep)
-	arr := strings.Split(s, sep)
+	s = strings.ReplaceAll(s, "\t", Sep)
+	arr := strings.Split(s, Sep)
 	arr = slices.DeleteFunc(arr, func(s string) bool {
 		return s == ""
 	})
@@ -62,9 +53,13 @@ func trimArgs(s string) Command {
 }
 
 // composeCommand returns valid Command struct
-func composeCommand(s string, vc []string) (Command, error) {
+func composeCommand(s string) (Command, error) {
+	if s == "" {
+		return Command{}, errors.New("empty command")
+	}
+
 	result := trimArgs(s)
-	err := validateArgs(result, vc)
+	err := validateArgs(result)
 	if err != nil {
 		return Command{}, fmt.Errorf("argument validation error: %w", err)
 	}
@@ -73,15 +68,10 @@ func composeCommand(s string, vc []string) (Command, error) {
 }
 
 // validateArgs ensures only correct values are present in the input
-func validateArgs(c Command, vc []string) error {
+func validateArgs(c Command) error {
 	ln := len(c.Args)
 	val := validator.New(validator.WithRequiredStructEnabled())
 	tag := "printascii,containsany=*_/|alphanum|numeric|alpha"
-
-	// command is valid
-	if !slices.Contains(vc, c.Command) {
-		return fmt.Errorf("invalid command: %s", c.Command)
-	}
 
 	// commands have necessary args
 	switch c.Command {
@@ -97,10 +87,8 @@ func validateArgs(c Command, vc []string) error {
 		if ln != 2 {
 			return fmt.Errorf("expected 2 arguments, got %d", ln)
 		}
-	case "QUIT", "EXIT":
-		if ln != 0 {
-			return fmt.Errorf("expected 0 arguments, got %d", ln)
-		}
+	default:
+		return fmt.Errorf("invalid command: %s", c.Command)
 	}
 
 	// validate args
