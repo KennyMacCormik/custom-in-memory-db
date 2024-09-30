@@ -35,7 +35,7 @@ func main() {
 	db.New(&comp)
 	lg.Info("db init done")
 
-	srv := intiTcpServer(conf, lg)
+	srv := initTcpServer(conf, lg)
 	defer srv.Close()
 	lg.Info("tcp server init done")
 

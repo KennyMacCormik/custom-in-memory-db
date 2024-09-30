@@ -12,7 +12,7 @@ import (
 	"strconv"
 )
 
-func intiTcpServer(conf cmd.Config, lg *slog.Logger) *tcp.Server {
+func initTcpServer(conf cmd.Config, lg *slog.Logger) *tcp.Server {
 	srv := tcp.Server{}
 	err := srv.New(conf.Net.NET_ADDR, strconv.Itoa(conf.Net.NET_PORT), conf.Net.NET_TIMEOUT, conf.Net.NET_MAX_CONN, lg)
 	if err != nil {
