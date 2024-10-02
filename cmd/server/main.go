@@ -12,10 +12,6 @@ import (
 const errExit = 1
 
 func main() {
-	// Init logger
-	var logLevel = new(slog.LevelVar)
-	logLevel.Set(slog.LevelDebug)
-	lg := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 	// Init config
 	conf := cmd.Config{}
 	err := conf.New()
