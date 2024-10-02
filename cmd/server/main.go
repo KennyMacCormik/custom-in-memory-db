@@ -24,6 +24,12 @@ func main() {
 
 	st := initStorage(conf, lg)
 	defer st.Close()
+	if conf.Wal.WAL_SEG_RECOVER {
+		err = st.Recover(conf, lg)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	// Init compute layer
 	comp := compute.Comp{}

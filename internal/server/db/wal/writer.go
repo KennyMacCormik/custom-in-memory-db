@@ -1,10 +1,14 @@
 package wal
 
 import (
+	"bufio"
 	"custom-in-memory-db/internal/server/cmd"
+	"custom-in-memory-db/internal/server/db/parser"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
+	"slices"
 	"strconv"
 )
 
@@ -20,6 +24,43 @@ type writer struct {
 	walMaxSize int64
 	currSeg    int
 	currFile   *os.File
+}
+
+// Recover loads wal to the running storage.Storage
+func (w *writer) Recover(conf cmd.Config, s func(k, v string) error, d func(k string) error, lg *slog.Logger) error {
+	const suf = "wal.Recover()"
+	files, _, err := w.getFiles(conf, false, true)
+	if err != nil {
+		return fmt.Errorf("%s.getFiles() failed: %w", suf, err)
+	}
+
+	for _, file := range files {
+		f, err := os.Open(file.Name())
+		if err != nil {
+			return fmt.Errorf("%s.os.Open() failed: %w", suf, err)
+		}
+
+		w.loadFile(f, s, d, lg)
+	}
+
+	return nil
+}
+
+// loadFile reads commands from f and commits them to the running storage.Storage
+func (w *writer) loadFile(f *os.File, s func(k, v string) error, d func(k string) error, lg *slog.Logger) {
+	reader := bufio.NewReader(f)
+	var err error = nil
+	for ; err == nil; _, err = reader.Peek(1) {
+		c, e := parser.Read(reader, lg)
+		if e != nil {
+			continue
+		}
+		if c.Command == "SET" {
+			_ = s(c.Args[0], c.Args[1])
+			continue
+		}
+		_ = d(c.Args[0])
+	}
 }
 
 // Close gracefully closes currently opened file
@@ -38,14 +79,8 @@ func (w *writer) New(conf cmd.Config) error {
 		return fmt.Errorf("getCurrSeg failed: %w", err)
 	}
 
-	if !conf.Wal.WAL_SEG_RECOVER {
-		if err := w.newSegment(); err != nil {
-			return fmt.Errorf("newSegment failed: %w", err)
-		}
-	} else {
-		if err := w.recover(); err != nil {
-			return fmt.Errorf("recover failed: %w", err)
-		}
+	if err := w.newSegment(); err != nil {
+		return fmt.Errorf("newSegment failed: %w", err)
 	}
 
 	return nil
@@ -197,22 +232,9 @@ func (w *writer) newSegment() error {
 // getCurrSeg finds segment with max number and calculates
 // if we will write to it, or rotate to a new one
 func (w *writer) getCurrSeg(conf cmd.Config) error {
-	var maxIndex int
-	// list files in folder
-	files, err := os.ReadDir(conf.Wal.WAL_SEG_PATH)
+	files, maxIndex, err := w.getFiles(conf, true, false)
 	if err != nil {
 		return fmt.Errorf("os.ReadDir failed: %w", err)
-	}
-	// find wal file with max index
-	for i, file := range files {
-		name, err := strconv.Atoi(file.Name())
-		if err != nil {
-			continue
-		}
-		if !file.IsDir() && w.currSeg < name {
-			w.currSeg = name
-			maxIndex = i
-		}
 	}
 	// check if it is filled
 	st, err := os.Stat(files[maxIndex].Name())
@@ -228,8 +250,48 @@ func (w *writer) getCurrSeg(conf cmd.Config) error {
 	return nil
 }
 
-// recover reads wal files and runs every command within
-func (w *writer) recover() error {
-	//TODO implement
-	return nil
+func (w *writer) getFiles(conf cmd.Config, MaxIndex bool, Sort bool) ([]os.DirEntry, int, error) {
+	var maxIndex int
+	// list files in folder
+	files, err := os.ReadDir(conf.Wal.WAL_SEG_PATH)
+	if err != nil {
+		return nil, 0, fmt.Errorf("os.ReadDir failed: %w", err)
+	}
+	// filter out non-integers
+	for i := 0; i < len(files); i++ {
+		_, err := strconv.Atoi(files[i].Name())
+		if err != nil {
+			files = append(files[:i], files[i+1:]...)
+			i--
+		}
+	}
+	// find wal file with max index
+	if MaxIndex {
+		for i, file := range files {
+			name, err := strconv.Atoi(file.Name())
+			if err != nil {
+				continue
+			}
+			if !file.IsDir() && w.currSeg < name {
+				w.currSeg = name
+				maxIndex = i
+			}
+		}
+	}
+
+	if Sort {
+		slices.SortFunc(files, func(a, b os.DirEntry) int {
+			n1, _ := strconv.Atoi(a.Name())
+			n2, _ := strconv.Atoi(b.Name())
+			if n1 < n2 {
+				return -1
+			}
+			if n1 > n2 {
+				return 1
+			}
+			return 0
+		})
+	}
+
+	return files, maxIndex, nil
 }

@@ -36,9 +36,7 @@ type barrier struct {
 
 // New initialize barrier with necessary constants and
 // initializes writer object, that handles actual disk writes
-func (b *barrier) New(conf cmd.Config) (chan Input, error) {
-	const suf = "barrier.New()"
-
+func (b *barrier) New(conf cmd.Config, w writer) (chan Input, error) {
 	b.buffer = make([]byte, 0, conf.Wal.WAL_SEG_SIZE)
 	b.reqWaiting = make([]chan struct{}, 0, conf.Net.NET_MAX_CONN)
 	b.in = make(chan Input, conf.Net.NET_MAX_CONN)
@@ -46,10 +44,7 @@ func (b *barrier) New(conf cmd.Config) (chan Input, error) {
 	b.ticker = time.NewTicker(conf.Wal.WAL_BATCH_TIMEOUT)
 	b.done = make(chan struct{})
 	b.Err = make(chan error, 1)
-
-	if err := b.w.New(conf); err != nil {
-		return nil, fmt.Errorf("%s.writer.new() failed: %w", suf, err)
-	}
+	b.w = w
 
 	return b.in, nil
 }

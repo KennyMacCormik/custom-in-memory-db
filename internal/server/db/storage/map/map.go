@@ -1,13 +1,19 @@
 package _map
 
 import (
+	"custom-in-memory-db/internal/server/cmd"
 	"fmt"
+	"log/slog"
 	"sync"
 )
 
 type MapStorage struct {
 	mtx sync.Mutex
 	m   map[string]string
+}
+
+func (s *MapStorage) Recover(conf cmd.Config, lg *slog.Logger) error {
+	return nil
 }
 
 func (s *MapStorage) New() {

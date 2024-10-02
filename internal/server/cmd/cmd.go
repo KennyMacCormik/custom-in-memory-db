@@ -30,12 +30,11 @@ type Logging struct {
 }
 
 type Wal struct {
-	WAL_BATCH_SIZE      int           `env:"WAL_BATCH_SIZE" env-default:"10" env-description:"connection amount to trigger flush" validate:"numeric,gt=0"`
-	WAL_BATCH_TIMEOUT   time.Duration `env:"WAL_BATCH_TIMEOUT" env-default:"1s" env-description:"batch flush timeout min 1s" validate:"min=1ms"`
-	WAL_SEG_SIZE        int           `env:"WAL_SEG_SIZE" env-default:"1" env-description:"segment size on disk KB" validate:"numeric,gt=0"`
-	WAL_SEG_PATH        string        `env:"WAL_SEG_PATH" env-default:"./" env-description:"segment folder" validate:"dir,dirpath"`
-	WAL_SEG_RECOVER     bool          `env:"WAL_SEG_RECOVER" env-default:"false" env-description:"load data from wal to ram" validate:"boolean"`
-	WAL_SEG_ERR_RECOVER bool          `env:"WAL_SEG_ERR_RECOVER" env-default:"false" env-description:"recover from wal file missing error; might lead to data loss" validate:"boolean"`
+	WAL_BATCH_SIZE    int           `env:"WAL_BATCH_SIZE" env-default:"10" env-description:"connection amount to trigger flush" validate:"numeric,gt=0"`
+	WAL_BATCH_TIMEOUT time.Duration `env:"WAL_BATCH_TIMEOUT" env-default:"1s" env-description:"batch flush timeout min 1s" validate:"min=1ms"`
+	WAL_SEG_SIZE      int           `env:"WAL_SEG_SIZE" env-default:"1" env-description:"segment size on disk KB" validate:"numeric,gt=0"`
+	WAL_SEG_PATH      string        `env:"WAL_SEG_PATH" env-default:"./" env-description:"segment folder" validate:"dir,dirpath"`
+	WAL_SEG_RECOVER   bool          `env:"WAL_SEG_RECOVER" env-default:"true" env-description:"load data from wal to ram" validate:"boolean"`
 }
 
 type Config struct {
