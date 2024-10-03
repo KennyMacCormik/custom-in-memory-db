@@ -105,8 +105,8 @@ func (s *Server) handleClient(conn net.Conn, cm *connMeter, handler Handler, lg 
 	ilg.Debug(fmt.Sprintf("%s conn opened", suf))
 
 	result, err := handler(conn, ilg)
+	ilg.Debug(fmt.Sprintf("%s", suf), "handlerResult", result)
 	if err != nil {
-		//ilg.Error(fmt.Sprintf("%s.handler()", suf), "error", err.Error())
 		_, err = conn.Write([]byte(err.Error()))
 		if err != nil {
 			ilg.Error(fmt.Sprintf("%s.conn.Write()", suf), "error", err.Error())
@@ -119,4 +119,5 @@ func (s *Server) handleClient(conn net.Conn, cm *connMeter, handler Handler, lg 
 	if err != nil {
 		ilg.Error(fmt.Sprintf("%s.conn.Write()", suf), "error", err.Error())
 	}
+	ilg.Debug(fmt.Sprintf("%s", suf), "respondedToClient", "done")
 }
