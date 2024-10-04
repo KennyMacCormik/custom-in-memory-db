@@ -23,13 +23,14 @@ type Input struct {
 // buffer on disk and then signals to the requesters using Input.NotifyDone chan.
 // Err chan used to pass irrecoverable errors such as write failures
 type barrier struct {
-	Err           chan error
-	buffer        []byte
-	reqWaiting    []chan struct{}
-	in            chan Input
-	ticker        *time.Ticker
-	done          chan struct{}
-	maxReqWaiting int
+	Err            chan error
+	buffer         []byte
+	reqWaiting     []chan struct{}
+	in             chan Input
+	tickerDuration time.Duration
+	ticker         *time.Ticker
+	done           chan struct{}
+	maxReqWaiting  int
 
 	w writer
 }
@@ -42,6 +43,7 @@ func (b *barrier) New(conf cmd.Config, w writer) (chan Input, error) {
 	b.in = make(chan Input, conf.Net.NET_MAX_CONN)
 	b.maxReqWaiting = conf.Wal.WAL_BATCH_SIZE
 	b.ticker = time.NewTicker(conf.Wal.WAL_BATCH_TIMEOUT)
+	b.tickerDuration = conf.Wal.WAL_BATCH_TIMEOUT
 	b.done = make(chan struct{})
 	b.Err = make(chan error, 1)
 	b.w = w
@@ -81,6 +83,7 @@ func (b *barrier) Start() {
 					return
 				}
 				b.buffer = b.buffer[:0]
+				b.ticker.Reset(b.tickerDuration)
 				b.saveInput(data)
 			}
 		case <-b.ticker.C:
