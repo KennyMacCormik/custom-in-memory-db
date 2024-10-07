@@ -1,29 +1,13 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"strconv"
+	root "custom-in-memory-db/cmd/client/cmd"
+	conf2 "custom-in-memory-db/cmd/client/cmd/conf"
 )
 
-const net = "tcp"
-const errExit = 1
-
-type CmdInput struct {
-	Address string
-	Port    int
-	Cmd     string
-}
-
 func main() {
-	// read cmdline input
-	cmdInput := ReadFlags()
+	var conf conf2.Config
+	conf2.InitConf()
 
-	result, err := invokeTCP(net, cmdInput.Address, strconv.Itoa(cmdInput.Port), cmdInput.Cmd)
-	if err != nil {
-		fmt.Println(fmt.Errorf("tcp error: %w", err))
-		os.Exit(errExit)
-	}
-
-	fmt.Println(string(result))
+	root.Execute(&conf)
 }

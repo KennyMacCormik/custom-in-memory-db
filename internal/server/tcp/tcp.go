@@ -89,7 +89,8 @@ func (s *Server) Listen(f Handler) {
 	}
 }
 
-func (s *Server) handleClient(conn net.Conn, cm *connMeter, f Handler, lg *slog.Logger) {
+func (s *Server) handleClient(conn net.Conn, cm *connMeter, handler Handler, lg *slog.Logger) {
+	const suf = "server.handleClient()"
 	defer cm.decConnCount()
 	defer conn.Close()
 
@@ -98,20 +99,25 @@ func (s *Server) handleClient(conn net.Conn, cm *connMeter, f Handler, lg *slog.
 	err := conn.SetDeadline(time.Now().Add(s.deadline))
 	// how to unit-test this????
 	if err != nil {
-		ilg.Error("connection deadline cannot be set", "error", err.Error())
+		ilg.Error(fmt.Sprintf("%s.SetDeadline()", suf), "error", err.Error())
 	}
 
-	result, err := f(conn, ilg)
+	ilg.Debug(fmt.Sprintf("%s conn opened", suf))
+
+	result, err := handler(conn, ilg)
+	ilg.Debug(fmt.Sprintf("%s", suf), "handlerResult", result)
 	if err != nil {
-		ilg.Error("executing error", "error", err.Error())
 		_, err = conn.Write([]byte(err.Error()))
 		if err != nil {
-			ilg.Error("connection writing error", "error", err.Error())
+			ilg.Error(fmt.Sprintf("%s.conn.Write()", suf), "error", err.Error())
+			return
 		}
+		return
 	}
 
 	_, err = conn.Write([]byte(result))
 	if err != nil {
-		ilg.Error("result writing error", "error", err.Error())
+		ilg.Error(fmt.Sprintf("%s.conn.Write()", suf), "error", err.Error())
 	}
+	ilg.Debug(fmt.Sprintf("%s", suf), "respondedToClient", "done")
 }

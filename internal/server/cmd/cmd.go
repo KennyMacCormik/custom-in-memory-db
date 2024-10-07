@@ -4,136 +4,104 @@ import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/ilyakaznacheev/cleanenv"
-	"os"
+	"reflect"
+	"strings"
 	"time"
 )
 
+const KB = 1024
+
 type Engine struct {
-	Storage string `env:"STORAGE" env-required:"true" env-description:"storage driver"`
-	Input   string `env:"INPUT" env-default:"tcp4" env-description:"how server accept commands"`
+	APP_STORAGE string `env:"APP_STORAGE" env-required:"true" env-description:"storage driver" validate:"oneof=mem wal"`
+	APP_INPUT   string `env:"APP_INPUT" env-default:"tcp4" env-description:"how server accept commands" validate:"oneof=stdin tcp4"`
 }
 
 type Network struct {
-	Address        string        `env:"ADDR" env-required:"true" env-description:"address to listen"`
-	Port           int           `env:"PORT" env-required:"true" env-description:"port to listen"`
-	MaxConn        int           `env:"MAX_CONN" env-default:"100" env-description:"maximum accepted connections"`
-	MaxMessageSize int           `env:"MESSAGE_SIZE" env-default:"4" env-description:"max message size KB"`
-	IdleTimeout    time.Duration `env:"TIMEOUT" env-default:"60s" env-description:"idle connection timeout"`
+	NET_ADDR         string        `env:"NET_ADDR" env-required:"true" env-description:"address to listen" validate:"ip4_addr"`
+	NET_PORT         int           `env:"NET_PORT" env-required:"true" env-description:"port to listen" validate:"numeric,gt=0,lt=65536"`
+	NET_MAX_CONN     int           `env:"NET_MAX_CONN" env-default:"100" env-description:"maximum accepted connections" validate:"numeric,gte=0"`
+	NET_MESSAGE_SIZE int           `env:"NET_MESSAGE_SIZE" env-default:"4" env-description:"max message size KB" validate:"numeric,gt=0"`
+	NET_TIMEOUT      time.Duration `env:"NET_TIMEOUT" env-default:"60s" env-description:"idle connection timeout min 1ms" validate:"min=1ms"`
 }
 
 type Logging struct {
-	Format string `env:"LOG_FORMAT" env-default:"text" env-description:"log format"`
+	LOG_FORMAT string `env:"LOG_FORMAT" env-default:"text" env-description:"log format" validate:"oneof=text json"`
+	LOG_LEVEL  string `env:"LOG_LEVEL" env-default:"debug" env-description:"log level" validate:"oneof=debug info warn error"`
+}
+
+type Wal struct {
+	WAL_BATCH_SIZE    int           `env:"WAL_BATCH_SIZE" env-default:"10" env-description:"connection amount to trigger flush" validate:"numeric,gt=0"`
+	WAL_BATCH_TIMEOUT time.Duration `env:"WAL_BATCH_TIMEOUT" env-default:"1s" env-description:"batch flush timeout min 1s" validate:"min=1ms"`
+	WAL_SEG_SIZE      int           `env:"WAL_SEG_SIZE" env-default:"1" env-description:"segment size on disk KB" validate:"numeric,gt=0"`
+	WAL_SEG_PATH      string        `env:"WAL_SEG_PATH" env-default:"./" env-description:"segment folder" validate:"dir,dirpath"`
+	WAL_SEG_RECOVER   bool          `env:"WAL_SEG_RECOVER" env-default:"true" env-description:"load data from wal to ram" validate:"boolean"`
 }
 
 type Config struct {
-	Eng Engine
-	Net Network
-	Log Logging
+	Engine Engine
+	Net    Network
+	Log    Logging
+	Wal    Wal
 }
 
-func validateMandatory() error {
+func (c *Config) validate() error {
 	validate := validator.New(validator.WithRequiredStructEnabled())
-	// ENV
-	errMsg := "%s expected %s, got %s"
 
-	val := "STORAGE"
-	tag := "oneof=map"
-	env := os.Getenv(val)
-	err := validate.Var(env, tag)
+	err := validate.Struct(c)
 	if err != nil {
-		return fmt.Errorf(errMsg, val, tag, env)
-	}
-
-	val = "ADDR"
-	tag = "ip4_addr"
-	env = os.Getenv(val)
-	err = validate.Var(env, tag)
-	if err != nil {
-		return fmt.Errorf(errMsg, val, tag, env)
-	}
-
-	val = "PORT"
-	tag = "number"
-	env = os.Getenv(val)
-	err = validate.Var(env, tag)
-	if err != nil {
-		return fmt.Errorf(errMsg, val, tag, env)
-	}
-
-	return nil
-}
-
-func validateOptional() error {
-	validate := validator.New(validator.WithRequiredStructEnabled())
-	// ENV
-	errMsg := "%s expected %s, got %s"
-	err := error(nil)
-
-	val := "MAX_CONN"
-	tag := "number"
-	env := os.Getenv(val)
-	if env != "" {
-		err = validate.Var(env, tag)
-		if err != nil {
-			return fmt.Errorf(errMsg, val, tag, env)
-		}
-	}
-
-	val = "INPUT"
-	tag = "oneof=stdin tcp4"
-	env = os.Getenv(val)
-	if env != "" {
-		err = validate.Var(env, tag)
-		if err != nil {
-			return fmt.Errorf(errMsg, val, tag, env)
-		}
-	}
-
-	val = "MESSAGE_SIZE"
-	tag = "number"
-	env = os.Getenv(val)
-	if env != "" {
-		err = validate.Var(env, tag)
-		if err != nil {
-			return fmt.Errorf(errMsg, val, tag, env)
-		}
-	}
-
-	val = "TIMEOUT"
-	tag = "duration"
-	env = os.Getenv(val)
-	if env != "" {
-		_, err = time.ParseDuration(env)
-		if err != nil {
-			return fmt.Errorf(errMsg, val, tag, env)
-		}
-	}
-
-	val = "LOG_FORMAT"
-	tag = "oneof=text"
-	env = os.Getenv(val)
-	if env != "" {
-		err = validate.Var(env, tag)
-		if err != nil {
-			return fmt.Errorf(errMsg, val, tag, env)
-		}
+		return err
 	}
 
 	return nil
 }
 
 func (c *Config) New() error {
-	err := validateMandatory()
-	if err != nil {
-		return err
-	}
-	err = validateOptional()
-	if err != nil {
-		return err
-	}
-	err = cleanenv.ReadEnv(c)
+	err := cleanenv.ReadEnv(c)
 	if err != nil {
 		return fmt.Errorf("could not read config from ENV: %w", err)
 	}
+
+	err = c.validate()
+	if err != nil {
+		return fmt.Errorf("config validation error: %s", c.handleValidatorError(err))
+	}
+
+	c.Net.NET_MESSAGE_SIZE *= KB
+	c.Wal.WAL_SEG_SIZE *= KB
+
 	return nil
+}
+
+func (c *Config) handleValidatorError(err error) string {
+	valErr := err.(validator.ValidationErrors)
+	errStr := ""
+
+	for _, v := range valErr {
+		tag := c.reflectActualTag(v.StructField())
+		if tag == "" {
+			tag = "err reflect tag"
+		}
+		errStr += fmt.Sprintf("field '%s' value '%s' invalid, '%s' expected; ",
+			v.StructField(), v.Value(), tag)
+	}
+	errStr = strings.Trim(errStr, " ")
+
+	return errStr
+}
+
+func (c *Config) reflectActualTag(sf string) string {
+	ref := reflect.TypeOf(*c)
+
+	for i := 0; i < ref.NumField(); i++ {
+		fieldName := ref.Field(i).Name
+		field, _ := ref.FieldByName(fieldName)
+		for j := 0; j < field.Type.NumField(); j++ {
+			intFieldName := field.Type.Field(j)
+			if intFieldName.Name == sf {
+				return intFieldName.Tag.Get("validate")
+			}
+		}
+	}
+
+	return ""
 }
