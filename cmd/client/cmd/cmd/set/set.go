@@ -50,6 +50,7 @@ func args(cmd *cobra.Command, args []string) error {
 	}
 
 	validate := validator.New(validator.WithRequiredStructEnabled())
+
 	for _, arg := range args {
 		if err := validate.Var(args[0], validatorTag); err != nil {
 			return fmt.Errorf("arg [%s] expected to match [%s] tag", arg, validatorTag)

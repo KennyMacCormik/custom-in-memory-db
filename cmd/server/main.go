@@ -34,6 +34,7 @@ func main() {
 	// Init compute layer
 	comp := compute.Comp{}
 	comp.New(st)
+	lg.Info("compute init done")
 
 	// Init db layer
 	database := db.Database{}
@@ -45,6 +46,7 @@ func main() {
 	}
 	// how to mute "unhandled error" warning?
 	defer srv.Close()
+	lg.Info("tcp server init done")
 
 	handler := func(r io.Reader, lg *slog.Logger) (string, error) {
 		return database.HandleRequest(r, lg)
