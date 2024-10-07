@@ -57,10 +57,7 @@ func Storage(conf cmd.Config, lg *slog.Logger) (storage.Storage, error) {
 			return nil, fmt.Errorf("%s: %w", suf, err)
 		}
 
-		wl, err := initWal(conf, st, writer, lg)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", suf, err)
-		}
+		wl := initWal(conf, st, writer, lg)
 
 		if conf.Wal.WAL_SEG_RECOVER {
 			err = wl.Recover(conf, lg)
@@ -99,15 +96,10 @@ func initWriter(conf cmd.Config, lg *slog.Logger) (*wal.Writer, error) {
 	return &writer, nil
 }
 
-func initWal(conf cmd.Config, st storage.Storage, writer wal.WriterInterface, lg *slog.Logger) (*wal.Wal, error) {
-	const suf = "wal.Wal{}.New() error"
+func initWal(conf cmd.Config, st storage.Storage, writer wal.WriterInterface, lg *slog.Logger) *wal.Wal {
 	wl := wal.Wal{}
-	err := wl.New(conf, st, writer)
-	if err != nil {
-		lg.Error(suf, "error", err.Error())
-		return nil, fmt.Errorf("%s: %w", suf, err)
-	}
+	wl.New(conf, st, writer)
 	lg.Info("wal init done")
 
-	return &wl, nil
+	return &wl
 }

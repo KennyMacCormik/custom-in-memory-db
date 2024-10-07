@@ -3,8 +3,10 @@ package wal
 import (
 	"custom-in-memory-db/internal/server/cmd"
 	"custom-in-memory-db/internal/server/db/storage"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 )
 
 // Wal shadows any implementation of storage.Storage.
@@ -21,6 +23,7 @@ type Wal struct {
 
 func (w *Wal) Recover(conf cmd.Config, lg *slog.Logger) error {
 	const suf = "wal.New().barrier.New() failed:"
+	// how to unit-test this?
 	setter := func(k, v string) error {
 		return w.st.Set(k, v)
 	}
@@ -39,20 +42,12 @@ func (w *Wal) Recover(conf cmd.Config, lg *slog.Logger) error {
 
 // New expects initialized storage.Storage object.
 // New starts barrier in the separate goroutine.
-func (w *Wal) New(conf cmd.Config, st storage.Storage, wrtr WriterInterface) error {
-	const suf = "wal.New().barrier.New()"
-	var err error
-
-	w.w = wrtr
+func (w *Wal) New(conf cmd.Config, st storage.Storage, writer WriterInterface) {
+	w.w = writer
 
 	w.st = st
 	// New() returns channel where all commands will be sent to
-	w.sendToBarrier, err = w.bar.New(conf, w.w)
-	if err != nil {
-		return fmt.Errorf("%s failed: %w", suf, err)
-	}
-
-	return nil
+	w.sendToBarrier = w.bar.New(conf, w.w)
 }
 
 func (w *Wal) Start() {
@@ -61,9 +56,20 @@ func (w *Wal) Start() {
 
 // Close stops barrier and storage.Storage gracefully
 func (w *Wal) Close() error {
-	w.st.Close()
-	w.bar.Close()
 	// how to pass two errors?
+	err1 := w.st.Close()
+	err2 := w.bar.Close()
+	var errStr string
+	if err1 != nil {
+		errStr = err1.Error()
+	}
+	if err2 != nil {
+		errStr = strings.Join([]string{err2.Error(), errStr}, "; ")
+	}
+	if errStr != "" {
+		errStr = strings.Join([]string{"wal.Close().storage.Close() and wal.Close().barrier.Close() joined error", errStr}, ": ")
+		return errors.New(errStr)
+	}
 	return nil
 }
 
@@ -108,7 +114,7 @@ func (w *Wal) Del(key string) error {
 	return nil
 }
 
-// waitForWal sends command to barrier and waits until it is commited to wal
+// waitForWal sends command to the barrier and waits until it is commited to wal
 func (w *Wal) waitForWal(inData []byte) {
 	msg := Input{
 		NotifyDone: make(chan struct{}),
