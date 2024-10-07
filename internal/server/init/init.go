@@ -6,23 +6,24 @@ import (
 	_map "custom-in-memory-db/internal/server/db/storage/map"
 	"custom-in-memory-db/internal/server/db/wal"
 	"custom-in-memory-db/internal/server/tcp"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
 )
 
-const errExit = 1
-
-func TcpServer(conf cmd.Config, lg *slog.Logger) *tcp.Server {
+func TcpServer(conf cmd.Config, lg *slog.Logger) (*tcp.Server, error) {
+	const suf = "init.TcpServer() failed"
 	srv := tcp.Server{}
 	err := srv.New(conf.Net.NET_ADDR, strconv.Itoa(conf.Net.NET_PORT), conf.Net.NET_TIMEOUT, conf.Net.NET_MAX_CONN, lg)
 	if err != nil {
-		lg.Error("failed init tcp server", "error", err.Error())
-		os.Exit(errExit)
+		lg.Error(suf, "error", err.Error())
+		return nil, fmt.Errorf("%s: %w", suf, err)
 	}
+	lg.Debug("tcp server init done")
 
-	return &srv
+	return &srv, nil
 }
 
 func Logger(conf cmd.Config) *slog.Logger {
@@ -43,54 +44,59 @@ func Logger(conf cmd.Config) *slog.Logger {
 	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 }
 
-func Storage(conf cmd.Config, lg *slog.Logger) storage.Storage {
+func Storage(conf cmd.Config, lg *slog.Logger) (storage.Storage, error) {
+	const suf = "init.TcpServer() failed"
 	switch conf.Engine.APP_STORAGE {
 	case "mem":
-		return initMapStorage(lg)
+		return initMapStorage(lg), nil
 	case "wal":
 		st := initMapStorage(lg)
-		writer := initWriter(conf, lg)
-		wl := initWal(conf, st, writer, lg)
+		writer, err := initWriter(conf, lg)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", suf, err)
+		}
+		wl, err := initWal(conf, st, writer, lg)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", suf, err)
+		}
 
-		return wl
+		return wl, nil
 	default:
-		lg.Error("storage init error", "error",
-			fmt.Sprintf("unknown storage: %s", conf.Engine.APP_STORAGE))
-		os.Exit(errExit)
+		errMsg := "unexpected APP_STORAGE"
+		lg.Error(suf, "error", errMsg)
+		return nil, fmt.Errorf("%s: %w", suf, errors.New(errMsg))
 	}
-	// why I need this?
-	return nil
 }
 
 func initMapStorage(lg *slog.Logger) *_map.MapStorage {
 	st := _map.MapStorage{}
 	st.New()
-	lg.Info("storage init done")
+	lg.Info("map storage init done")
 
 	return &st
 }
 
-func initWriter(conf cmd.Config, lg *slog.Logger) *wal.Writer {
+func initWriter(conf cmd.Config, lg *slog.Logger) (*wal.Writer, error) {
 	const suf = "wal.Writer.New() error"
 	writer := wal.Writer{}
 	if err := writer.New(conf); err != nil {
 		lg.Error(suf, "error", err.Error())
-		os.Exit(errExit)
+		return nil, fmt.Errorf("%s: %w", suf, err)
 	}
 	lg.Info("writer init done")
 
-	return &writer
+	return &writer, nil
 }
 
-func initWal(conf cmd.Config, st storage.Storage, writer wal.WriterInterface, lg *slog.Logger) *wal.Wal {
+func initWal(conf cmd.Config, st storage.Storage, writer wal.WriterInterface, lg *slog.Logger) (*wal.Wal, error) {
 	const suf = "wal.Wal{}.New() error"
 	wl := wal.Wal{}
 	err := wl.New(conf, st, writer)
 	if err != nil {
 		lg.Error(suf, "error", err.Error())
-		os.Exit(errExit)
+		return nil, fmt.Errorf("%s: %w", suf, err)
 	}
 	lg.Info("wal init done")
 
-	return &wl
+	return &wl, nil
 }
