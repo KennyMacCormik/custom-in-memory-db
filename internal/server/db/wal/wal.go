@@ -16,7 +16,7 @@ type Wal struct {
 	bar           barrier
 	sendToBarrier chan Input
 
-	w writer
+	w WriterInterface
 }
 
 func (w *Wal) Recover(conf cmd.Config, lg *slog.Logger) error {
@@ -37,13 +37,11 @@ func (w *Wal) Recover(conf cmd.Config, lg *slog.Logger) error {
 
 // New expects initialized storage.Storage object.
 // New starts barrier in the separate goroutine.
-func (w *Wal) New(conf cmd.Config, st storage.Storage) error {
+func (w *Wal) New(conf cmd.Config, st storage.Storage, wrtr WriterInterface) error {
 	const suf = "wal.New().barrier.New()"
 	var err error
 
-	if err := w.w.New(conf); err != nil {
-		return fmt.Errorf("%s.writer.new() failed: %w", suf, err)
-	}
+	w.w = wrtr
 
 	w.st = st
 	w.sendToBarrier, err = w.bar.New(conf, w.w)

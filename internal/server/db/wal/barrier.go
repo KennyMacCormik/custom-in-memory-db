@@ -32,12 +32,12 @@ type barrier struct {
 	done           chan struct{}
 	maxReqWaiting  int
 
-	w writer
+	w WriterInterface
 }
 
 // New initialize barrier with necessary constants and
 // initializes writer object, that handles actual disk writes
-func (b *barrier) New(conf cmd.Config, w writer) (chan Input, error) {
+func (b *barrier) New(conf cmd.Config, w WriterInterface) (chan Input, error) {
 	b.buffer = make([]byte, 0, conf.Wal.WAL_SEG_SIZE)
 	b.reqWaiting = make([]chan struct{}, 0, conf.Net.NET_MAX_CONN)
 	b.in = make(chan Input, conf.Net.NET_MAX_CONN)

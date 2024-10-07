@@ -4,12 +4,11 @@ import (
 	"custom-in-memory-db/internal/server/cmd"
 	db2 "custom-in-memory-db/internal/server/db"
 	"custom-in-memory-db/internal/server/db/compute"
+	"custom-in-memory-db/internal/server/init"
 	"fmt"
 	"io"
 	"log/slog"
 )
-
-const errExit = 1
 
 func main() {
 	// Init config
@@ -19,10 +18,11 @@ func main() {
 		panic(fmt.Errorf("config init error: %w", err))
 	}
 
-	lg := initLogger(conf)
+	lg := init.Logger(conf)
 	lg.Info("config init success")
 
-	st := initStorage(conf, lg)
+	st := init.Storage(conf, lg)
+	// how to mute "unhandled error" warning?
 	defer st.Close()
 	if conf.Wal.WAL_SEG_RECOVER {
 		err = st.Recover(conf, lg)
@@ -41,7 +41,8 @@ func main() {
 	db.New(&comp)
 	lg.Info("db init done")
 
-	srv := initTcpServer(conf, lg)
+	srv := init.TcpServer(conf, lg)
+	// how to mute "unhandled error" warning?
 	defer srv.Close()
 	lg.Info("tcp server init done")
 

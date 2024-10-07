@@ -16,9 +16,16 @@ import (
 // to avoid segment files grow more than WAL_SEG_SIZE
 const errMargin = 10
 
-// writer actually writes data on disk.
+// WriterInterface interface is only needed to mock it and gracefully run unit test for barrier and Wal
+type WriterInterface interface {
+	Recover(cmd.Config, func(k, v string) error, func(k string) error, *slog.Logger) error
+	WriteAndRotate(s []byte) error
+	Close() error
+}
+
+// Writer actually writes data on disk.
 // It is responsible for rotating wal segments
-type writer struct {
+type Writer struct {
 	// wal file
 	walDir     string
 	walMaxSize int64
@@ -27,7 +34,7 @@ type writer struct {
 }
 
 // Recover loads wal to the running storage.Storage
-func (w *writer) Recover(conf cmd.Config, s func(k, v string) error, d func(k string) error, lg *slog.Logger) error {
+func (w *Writer) Recover(conf cmd.Config, setFunc func(k, v string) error, delFunc func(k string) error, lg *slog.Logger) error {
 	const suf = "wal.Recover()"
 	files, _, err := w.getFiles(conf, false, true)
 	if err != nil {
@@ -40,38 +47,21 @@ func (w *writer) Recover(conf cmd.Config, s func(k, v string) error, d func(k st
 			return fmt.Errorf("%s.os.Open() failed: %w", suf, err)
 		}
 
-		w.loadFile(f, s, d, lg)
+		w.loadFile(f, setFunc, delFunc, lg)
 	}
 
 	return nil
 }
 
-// loadFile reads commands from f and commits them to the running storage.Storage
-func (w *writer) loadFile(f *os.File, s func(k, v string) error, d func(k string) error, lg *slog.Logger) {
-	reader := bufio.NewReader(f)
-	var err error = nil
-	for ; err == nil; _, err = reader.Peek(1) {
-		c, e := parser.Read(reader, lg)
-		if e != nil {
-			continue
-		}
-		if c.Command == "SET" {
-			_ = s(c.Args[0], c.Args[1])
-			continue
-		}
-		_ = d(c.Args[0])
-	}
-}
-
 // Close gracefully closes currently opened file
-func (w *writer) Close() error {
+func (w *Writer) Close() error {
 	return w.currFile.Close()
 }
 
 // New searches WAL_SEG_PATH for files with integers in their names
 // and finds out if we can continue to write to the last segment,
 // or it is time to rotate
-func (w *writer) New(conf cmd.Config) error {
+func (w *Writer) New(conf cmd.Config) error {
 	w.walDir = conf.Wal.WAL_SEG_PATH
 	w.walMaxSize = int64(conf.Wal.WAL_SEG_SIZE)
 
@@ -87,7 +77,7 @@ func (w *writer) New(conf cmd.Config) error {
 }
 
 // WriteAndRotate writes wal files and ensures no segment file never grows above WAL_SEG_SIZE
-func (w *writer) WriteAndRotate(s []byte) error {
+func (w *Writer) WriteAndRotate(s []byte) error {
 	if !w.isRotate(s) {
 		err := w.tryWrite(s)
 		if err != nil {
@@ -126,9 +116,26 @@ func (w *writer) WriteAndRotate(s []byte) error {
 	return nil
 }
 
+// loadFile reads commands from f and commits them to the running storage.Storage
+func (w *Writer) loadFile(f *os.File, s func(k, v string) error, d func(k string) error, lg *slog.Logger) {
+	reader := bufio.NewReader(f)
+	var err error = nil
+	for ; err == nil; _, err = reader.Peek(1) {
+		c, e := parser.Read(reader, lg)
+		if e != nil {
+			continue
+		}
+		if c.Command == "SET" {
+			_ = s(c.Args[0], c.Args[1])
+			continue
+		}
+		_ = d(c.Args[0])
+	}
+}
+
 // getRotationIndex finds out how much we can write to currFile
 // without exceeding WAL_SEG_SIZE and all commands intact
-func (w *writer) getRotationIndex(s []byte) int {
+func (w *Writer) getRotationIndex(s []byte) int {
 	st, err := os.Stat(w.walDir + strconv.Itoa(w.currSeg))
 	if err != nil {
 		return 1
@@ -147,7 +154,7 @@ func (w *writer) getRotationIndex(s []byte) int {
 
 // isRotate defines if seg file needs rotation after writing s bytes.
 // Uses errMargin in its calculations
-func (w *writer) isRotate(s []byte) bool {
+func (w *Writer) isRotate(s []byte) bool {
 	st, err := os.Stat(w.walDir + strconv.Itoa(w.currSeg))
 	if err != nil {
 		return false
@@ -157,7 +164,7 @@ func (w *writer) isRotate(s []byte) bool {
 }
 
 // isOverflow defines if seg file will exceed WAL_SEG_SIZE after writing s bytes.
-func (w *writer) isOverflow(s []byte) bool {
+func (w *Writer) isOverflow(s []byte) bool {
 	st, err := os.Stat(w.walDir + strconv.Itoa(w.currSeg))
 	if err != nil {
 		return false
@@ -167,7 +174,7 @@ func (w *writer) isOverflow(s []byte) bool {
 }
 
 // tryWrite writes s bytes to currFile and calls fsync
-func (w *writer) tryWrite(s []byte) error {
+func (w *Writer) tryWrite(s []byte) error {
 	// ensure file exists
 	_, err := os.Stat(w.walDir + strconv.Itoa(w.currSeg))
 	if err != nil {
@@ -188,7 +195,7 @@ func (w *writer) tryWrite(s []byte) error {
 }
 
 // tryRotate closes tryRotate and creates new seg file
-func (w *writer) tryRotate() error {
+func (w *Writer) tryRotate() error {
 	_, err := os.Stat(w.walDir + strconv.Itoa(w.currSeg))
 	if err != nil {
 		return fmt.Errorf("os.Stat failed: %w", err)
@@ -209,7 +216,7 @@ func (w *writer) tryRotate() error {
 
 // newSegment creates new segment file if no file named currSeg exists.
 // Opens existing seg file otherwise
-func (w *writer) newSegment() error {
+func (w *Writer) newSegment() error {
 	w.currSeg++
 	// no next file exists
 	if _, err := os.Stat(w.walDir + strconv.Itoa(w.currSeg)); errors.Is(err, os.ErrNotExist) {
@@ -231,7 +238,7 @@ func (w *writer) newSegment() error {
 
 // getCurrSeg finds segment with max number and calculates
 // if we will write to it, or rotate to a new one
-func (w *writer) getCurrSeg(conf cmd.Config) error {
+func (w *Writer) getCurrSeg(conf cmd.Config) error {
 	files, maxIndex, err := w.getFiles(conf, true, false)
 	if err != nil {
 		return fmt.Errorf("os.ReadDir failed: %w", err)
@@ -250,7 +257,7 @@ func (w *writer) getCurrSeg(conf cmd.Config) error {
 	return nil
 }
 
-func (w *writer) getFiles(conf cmd.Config, MaxIndex bool, Sort bool) ([]os.DirEntry, int, error) {
+func (w *Writer) getFiles(conf cmd.Config, MaxIndex bool, Sort bool) ([]os.DirEntry, int, error) {
 	var maxIndex int
 	// list files in folder
 	files, err := os.ReadDir(conf.Wal.WAL_SEG_PATH)
