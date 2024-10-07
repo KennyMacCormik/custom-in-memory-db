@@ -31,13 +31,6 @@ func main() {
 	// how to mute "unhandled error" warning?
 	defer st.Close()
 
-	if conf.Wal.WAL_SEG_RECOVER {
-		err = st.Recover(conf, lg)
-		if err != nil {
-			lg.Error(err.Error())
-			os.Exit(errExit)
-		}
-	}
 	// Init compute layer
 	comp := compute.Comp{}
 	comp.New(st)

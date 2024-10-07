@@ -20,6 +20,7 @@ type Wal struct {
 }
 
 func (w *Wal) Recover(conf cmd.Config, lg *slog.Logger) error {
+	const suf = "wal.New().barrier.New() failed:"
 	setter := func(k, v string) error {
 		return w.st.Set(k, v)
 	}
@@ -28,11 +29,12 @@ func (w *Wal) Recover(conf cmd.Config, lg *slog.Logger) error {
 	}
 
 	err := w.w.Recover(conf, setter, deller, lg)
-	if conf.Wal.WAL_SEG_RECOVER && err == nil {
-		go w.bar.Start()
+	if err != nil {
+		lg.Error(suf, "error", err.Error())
+		return fmt.Errorf("%s: %w", suf, err)
 	}
 
-	return err
+	return nil
 }
 
 // New expects initialized storage.Storage object.
@@ -44,15 +46,17 @@ func (w *Wal) New(conf cmd.Config, st storage.Storage, wrtr WriterInterface) err
 	w.w = wrtr
 
 	w.st = st
+	// New() returns channel where all commands will be sent to
 	w.sendToBarrier, err = w.bar.New(conf, w.w)
 	if err != nil {
 		return fmt.Errorf("%s failed: %w", suf, err)
 	}
-	if !conf.Wal.WAL_SEG_RECOVER {
-		go w.bar.Start()
-	}
 
 	return nil
+}
+
+func (w *Wal) Start() {
+	go w.bar.Start()
 }
 
 // Close stops barrier and storage.Storage gracefully

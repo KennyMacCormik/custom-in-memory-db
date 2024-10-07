@@ -51,14 +51,25 @@ func Storage(conf cmd.Config, lg *slog.Logger) (storage.Storage, error) {
 		return initMapStorage(lg), nil
 	case "wal":
 		st := initMapStorage(lg)
+
 		writer, err := initWriter(conf, lg)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", suf, err)
 		}
+
 		wl, err := initWal(conf, st, writer, lg)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", suf, err)
 		}
+
+		if conf.Wal.WAL_SEG_RECOVER {
+			err = wl.Recover(conf, lg)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", suf, err)
+			}
+		}
+
+		wl.Start()
 
 		return wl, nil
 	default:
