@@ -38,7 +38,7 @@ func TestDatabase_HandleRequest_Positive(t *testing.T) {
 	}
 
 	comp := compute.NewMockCompute(t)
-	comp.EXPECT().Exec(testCase.cmd).Return(testCase.res, nil)
+	comp.EXPECT().Exec(testCase.cmd, slog.New(slog.NewTextHandler(io.Discard, nil))).Return(testCase.res, nil)
 
 	r := ioMock.NewMockReader(t)
 	r.On("Read", mock.Anything).Run(func(args mock.Arguments) {
@@ -100,7 +100,7 @@ func TestDatabase_HandleRequest_NegativeCompute(t *testing.T) {
 	}
 
 	comp := compute.NewMockCompute(t)
-	comp.EXPECT().Exec(testCase.cmd).Return("", errors.New("mock"))
+	comp.EXPECT().Exec(testCase.cmd, slog.New(slog.NewTextHandler(io.Discard, nil))).Return("", errors.New("mock"))
 
 	r := ioMock.NewMockReader(t)
 	r.On("Read", mock.Anything).Run(func(args mock.Arguments) {

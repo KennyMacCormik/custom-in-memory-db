@@ -25,6 +25,7 @@ func (c *Comp) New(st storage.Storage) {
 }
 
 func (c *Comp) Exec(cmd parser.Command, lg *slog.Logger) (string, error) {
+	_ = lg
 	switch cmd.Command {
 	case "GET":
 		r, err := c.st.Get(cmd.Args[0])
@@ -35,7 +36,7 @@ func (c *Comp) Exec(cmd parser.Command, lg *slog.Logger) (string, error) {
 	case "SET":
 		err := c.st.Set(cmd.Args[0], cmd.Args[1])
 		if err != nil {
-			return "", fmt.Errorf("error settings value: %v", err)
+			return "", fmt.Errorf("error setting value: %v", err)
 		}
 		return defaultOk, nil
 	case "DEL":

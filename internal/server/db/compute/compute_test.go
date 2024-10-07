@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"io"
+	"log/slog"
 	"testing"
 )
 
@@ -14,6 +16,7 @@ const getKeyNegative = "2"
 const getValue = "2"
 const nilResult = ""
 const setKey = "1"
+const setKeyNegative = "2"
 const setValue = "2"
 const success = "OK"
 const delKey = "1"
@@ -40,7 +43,7 @@ func TestComp_GetPositive(t *testing.T) {
 	comp := Comp{}
 	comp.New(st)
 
-	result, err := comp.Exec(testCase.input)
+	result, err := comp.Exec(testCase.input, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	assert.Equal(t, getValue, result)
 	assert.Nil(t, err)
@@ -64,7 +67,7 @@ func TestComp_GetNegative(t *testing.T) {
 	comp := Comp{}
 	comp.New(st)
 
-	result, err := comp.Exec(testCase.input)
+	result, err := comp.Exec(testCase.input, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	assert.EqualError(t, err, testCase.err)
 	assert.Equal(t, nilResult, result)
@@ -86,10 +89,34 @@ func TestComp_SetPositive(t *testing.T) {
 	comp := Comp{}
 	comp.New(st)
 
-	result, err := comp.Exec(testCase.input)
+	result, err := comp.Exec(testCase.input, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	assert.Equal(t, success, result)
 	assert.Nil(t, err)
+}
+
+func TestComp_SetNegative(t *testing.T) {
+	testCase := struct {
+		input parser.Command
+		err   string
+	}{
+		input: parser.Command{
+			Command: "SET",
+			Args:    []string{setKeyNegative, setValue},
+		},
+		err: "error setting value: test error",
+	}
+
+	st := storage.NewMockStorage(t)
+	st.EXPECT().Set(setKeyNegative, setValue).Return(errors.New("test error"))
+
+	comp := Comp{}
+	comp.New(st)
+
+	result, err := comp.Exec(testCase.input, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	assert.Equal(t, nilResult, result)
+	assert.EqualError(t, err, testCase.err)
 }
 
 func TestComp_DelPositive(t *testing.T) {
@@ -108,7 +135,7 @@ func TestComp_DelPositive(t *testing.T) {
 	comp := Comp{}
 	comp.New(st)
 
-	result, err := comp.Exec(testCase.input)
+	result, err := comp.Exec(testCase.input, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	assert.Equal(t, success, result)
 	assert.Nil(t, err)
@@ -132,7 +159,7 @@ func TestComp_DelNegative(t *testing.T) {
 	comp := Comp{}
 	comp.New(st)
 
-	result, err := comp.Exec(testCase.input)
+	result, err := comp.Exec(testCase.input, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	assert.EqualError(t, err, testCase.err)
 	assert.Equal(t, nilResult, result)
@@ -155,7 +182,7 @@ func TestComp_BogusCommand(t *testing.T) {
 	comp := Comp{}
 	comp.New(st)
 
-	result, err := comp.Exec(testCase.input)
+	result, err := comp.Exec(testCase.input, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	assert.EqualError(t, err, testCase.err)
 	assert.Equal(t, nilResult, result)

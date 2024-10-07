@@ -4,6 +4,7 @@ package compute
 
 import (
 	parser "custom-in-memory-db/internal/server/db/parser"
+	slog "log/slog"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -21,9 +22,9 @@ func (_m *MockCompute) EXPECT() *MockCompute_Expecter {
 	return &MockCompute_Expecter{mock: &_m.Mock}
 }
 
-// Exec provides a mock function with given fields: cmd
-func (_m *MockCompute) Exec(cmd parser.Command) (string, error) {
-	ret := _m.Called(cmd)
+// Exec provides a mock function with given fields: cmd, lg
+func (_m *MockCompute) Exec(cmd parser.Command, lg *slog.Logger) (string, error) {
+	ret := _m.Called(cmd, lg)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Exec")
@@ -31,17 +32,17 @@ func (_m *MockCompute) Exec(cmd parser.Command) (string, error) {
 
 	var r0 string
 	var r1 error
-	if rf, ok := ret.Get(0).(func(parser.Command) (string, error)); ok {
-		return rf(cmd)
+	if rf, ok := ret.Get(0).(func(parser.Command, *slog.Logger) (string, error)); ok {
+		return rf(cmd, lg)
 	}
-	if rf, ok := ret.Get(0).(func(parser.Command) string); ok {
-		r0 = rf(cmd)
+	if rf, ok := ret.Get(0).(func(parser.Command, *slog.Logger) string); ok {
+		r0 = rf(cmd, lg)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(parser.Command) error); ok {
-		r1 = rf(cmd)
+	if rf, ok := ret.Get(1).(func(parser.Command, *slog.Logger) error); ok {
+		r1 = rf(cmd, lg)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -56,13 +57,14 @@ type MockCompute_Exec_Call struct {
 
 // Exec is a helper method to define mock.On call
 //   - cmd parser.Command
-func (_e *MockCompute_Expecter) Exec(cmd interface{}) *MockCompute_Exec_Call {
-	return &MockCompute_Exec_Call{Call: _e.mock.On("Exec", cmd)}
+//   - lg *slog.Logger
+func (_e *MockCompute_Expecter) Exec(cmd interface{}, lg interface{}) *MockCompute_Exec_Call {
+	return &MockCompute_Exec_Call{Call: _e.mock.On("Exec", cmd, lg)}
 }
 
-func (_c *MockCompute_Exec_Call) Run(run func(cmd parser.Command)) *MockCompute_Exec_Call {
+func (_c *MockCompute_Exec_Call) Run(run func(cmd parser.Command, lg *slog.Logger)) *MockCompute_Exec_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(parser.Command))
+		run(args[0].(parser.Command), args[1].(*slog.Logger))
 	})
 	return _c
 }
@@ -72,7 +74,7 @@ func (_c *MockCompute_Exec_Call) Return(_a0 string, _a1 error) *MockCompute_Exec
 	return _c
 }
 
-func (_c *MockCompute_Exec_Call) RunAndReturn(run func(parser.Command) (string, error)) *MockCompute_Exec_Call {
+func (_c *MockCompute_Exec_Call) RunAndReturn(run func(parser.Command, *slog.Logger) (string, error)) *MockCompute_Exec_Call {
 	_c.Call.Return(run)
 	return _c
 }
