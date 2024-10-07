@@ -3,8 +3,10 @@ package wal
 import (
 	"custom-in-memory-db/internal/server/cmd"
 	"custom-in-memory-db/internal/server/db/storage"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 )
 
 // Wal shadows any implementation of storage.Storage.
@@ -16,10 +18,12 @@ type Wal struct {
 	bar           barrier
 	sendToBarrier chan Input
 
-	w writer
+	w WriterInterface
 }
 
 func (w *Wal) Recover(conf cmd.Config, lg *slog.Logger) error {
+	const suf = "wal.New().barrier.New() failed:"
+	// how to unit-test this?
 	setter := func(k, v string) error {
 		return w.st.Set(k, v)
 	}
@@ -28,40 +32,44 @@ func (w *Wal) Recover(conf cmd.Config, lg *slog.Logger) error {
 	}
 
 	err := w.w.Recover(conf, setter, deller, lg)
-	if conf.Wal.WAL_SEG_RECOVER && err == nil {
-		go w.bar.Start()
-	}
-
-	return err
-}
-
-// New expects initialized storage.Storage object.
-// New starts barrier in the separate goroutine.
-func (w *Wal) New(conf cmd.Config, st storage.Storage) error {
-	const suf = "wal.New().barrier.New()"
-	var err error
-
-	if err := w.w.New(conf); err != nil {
-		return fmt.Errorf("%s.writer.new() failed: %w", suf, err)
-	}
-
-	w.st = st
-	w.sendToBarrier, err = w.bar.New(conf, w.w)
 	if err != nil {
-		return fmt.Errorf("%s failed: %w", suf, err)
-	}
-	if !conf.Wal.WAL_SEG_RECOVER {
-		go w.bar.Start()
+		lg.Error(suf, "error", err.Error())
+		return fmt.Errorf("%s: %w", suf, err)
 	}
 
 	return nil
 }
 
+// New expects initialized storage.Storage object.
+// New starts barrier in the separate goroutine.
+func (w *Wal) New(conf cmd.Config, st storage.Storage, writer WriterInterface) {
+	w.w = writer
+
+	w.st = st
+	// New() returns channel where all commands will be sent to
+	w.sendToBarrier = w.bar.New(conf, w.w)
+}
+
+func (w *Wal) Start() {
+	go w.bar.Start()
+}
+
 // Close stops barrier and storage.Storage gracefully
 func (w *Wal) Close() error {
-	w.st.Close()
-	w.bar.Close()
 	// how to pass two errors?
+	err1 := w.st.Close()
+	err2 := w.bar.Close()
+	var errStr string
+	if err1 != nil {
+		errStr = err1.Error()
+	}
+	if err2 != nil {
+		errStr = strings.Join([]string{err2.Error(), errStr}, "; ")
+	}
+	if errStr != "" {
+		errStr = strings.Join([]string{"wal.Close().storage.Close() and wal.Close().barrier.Close() joined error", errStr}, ": ")
+		return errors.New(errStr)
+	}
 	return nil
 }
 
@@ -106,7 +114,7 @@ func (w *Wal) Del(key string) error {
 	return nil
 }
 
-// waitForWal sends command to barrier and waits until it is commited to wal
+// waitForWal sends command to the barrier and waits until it is commited to wal
 func (w *Wal) waitForWal(inData []byte) {
 	msg := Input{
 		NotifyDone: make(chan struct{}),

@@ -2,11 +2,13 @@ package main
 
 import (
 	"custom-in-memory-db/internal/server/cmd"
-	db2 "custom-in-memory-db/internal/server/db"
+	"custom-in-memory-db/internal/server/db"
 	"custom-in-memory-db/internal/server/db/compute"
+	myinit "custom-in-memory-db/internal/server/init"
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 )
 
 const errExit = 1
@@ -19,17 +21,15 @@ func main() {
 		panic(fmt.Errorf("config init error: %w", err))
 	}
 
-	lg := initLogger(conf)
+	lg := myinit.Logger(conf)
 	lg.Info("config init success")
 
-	st := initStorage(conf, lg)
-	defer st.Close()
-	if conf.Wal.WAL_SEG_RECOVER {
-		err = st.Recover(conf, lg)
-		if err != nil {
-			panic(err)
-		}
+	st, err := myinit.Storage(conf, lg)
+	if err != nil {
+		os.Exit(errExit)
 	}
+	// how to mute "unhandled error" warning?
+	defer st.Close()
 
 	// Init compute layer
 	comp := compute.Comp{}
@@ -37,17 +37,19 @@ func main() {
 	lg.Info("compute init done")
 
 	// Init db layer
-	db := db2.Database{}
-	db.New(&comp)
-	lg.Info("db init done")
+	database := db.Database{}
+	database.New(&comp)
 
-	srv := initTcpServer(conf, lg)
+	srv, err := myinit.TcpServer(conf, lg)
+	if err != nil {
+		os.Exit(errExit)
+	}
+	// how to mute "unhandled error" warning?
 	defer srv.Close()
 	lg.Info("tcp server init done")
 
 	handler := func(r io.Reader, lg *slog.Logger) (string, error) {
-		result, err := db.HandleRequest(r, lg)
-		return result, err
+		return database.HandleRequest(r, lg)
 	}
 	lg.Info("listening")
 	srv.Listen(handler)

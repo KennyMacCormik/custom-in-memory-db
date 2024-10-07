@@ -11,6 +11,13 @@ packages:
       Compute:
         config:
           dir: "mocks/compute"
+  custom-in-memory-db/internal/server/db/wal:
+    interfaces:
+      WriterInterface:
+        config:
+          inpackage: false
+          dir: "mocks/wal"
+          outpkg: "walMock"
   io:
     interfaces:
       Reader:

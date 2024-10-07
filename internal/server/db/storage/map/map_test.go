@@ -1,8 +1,11 @@
 package _map
 
 import (
+	"custom-in-memory-db/internal/server/cmd"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"io"
+	"log/slog"
 	"sync"
 	"testing"
 )
@@ -15,6 +18,21 @@ const firstSetVal = "5"
 func TestMapStorage_New(t *testing.T) {
 	var st MapStorage
 	st.New()
+}
+
+func TestMapStorage_Close(t *testing.T) {
+	var st MapStorage
+	err := st.Close()
+	assert.NoError(t, err)
+}
+
+func TestMapStorage_Recover(t *testing.T) {
+	var conf cmd.Config
+	var st MapStorage
+
+	// Recover is an empty method for MapStorage. It only exists to implement Storage interface
+	err := st.Recover(conf, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	assert.NoError(t, err)
 }
 
 func TestMapStorage_GetPositive(t *testing.T) {
