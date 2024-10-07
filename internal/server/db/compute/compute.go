@@ -5,15 +5,16 @@ import (
 	"custom-in-memory-db/internal/server/db/storage"
 	"errors"
 	"fmt"
+	"log/slog"
 )
 
 const defaultOk = "OK"
 
 type Compute interface {
-	Exec(cmd parser.Command) (string, error)
+	Exec(cmd parser.Command, lg *slog.Logger) (string, error)
 }
 
-// Instance of the Compute interface
+// Comp is an instance of the Compute interface
 type Comp struct {
 	st storage.Storage
 }
@@ -23,7 +24,7 @@ func (c *Comp) New(st storage.Storage) {
 	c.st = st
 }
 
-func (c *Comp) Exec(cmd parser.Command) (string, error) {
+func (c *Comp) Exec(cmd parser.Command, lg *slog.Logger) (string, error) {
 	switch cmd.Command {
 	case "GET":
 		r, err := c.st.Get(cmd.Args[0])
