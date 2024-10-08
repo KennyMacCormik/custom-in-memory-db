@@ -45,16 +45,16 @@ func TestTcpServer_Negative(t *testing.T) {
 		REP_PORT: 8082,
 	}
 	var network = cmd.Network{
-		NET_ADDR: "1271.0.0.1",
+		NET_ADDR: "127.0.0.1",
 		// Feel free to choose any port for this test
-		NET_PORT: 8080,
+		NET_PORT: 808080,
 	}
 	var conf = cmd.Config{
 		Engine: engine,
 		Rep:    rep,
 		Net:    network,
 	}
-	var errStr = "init.TcpServer() failed: tcp listener init error: listen tcp4: lookup 1271.0.0.1: no such host"
+	var errStr = "init.TcpServer() failed: tcp listener init error: listen tcp4: address 808080: invalid port"
 	nilLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	srv, err := TcpServer(conf, nilLogger)
