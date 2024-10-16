@@ -3,6 +3,7 @@ package init
 import (
 	"custom-in-memory-db/internal/server/cmd"
 	"custom-in-memory-db/internal/server/db"
+	"custom-in-memory-db/internal/server/network"
 	"errors"
 	"log/slog"
 	"os"
@@ -22,11 +23,26 @@ func Database(conf cmd.Config, lg *slog.Logger) *db.Database {
 
 	pr := Parser(conf, lg)
 
-	tcp := TcpServer(conf, lg)
+	net := initNetworkEndpoint(conf, lg)
+	if net == nil {
+		lg.Error("network init failed: unknown network type")
+		os.Exit(errExit)
+	}
 
 	database := db.Database{}
-	database.New(comp, tcp, pr, lg)
+	database.New(comp, net, pr, lg)
 	lg.Info("db init done")
 
 	return &database
+}
+
+func initNetworkEndpoint(conf cmd.Config, lg *slog.Logger) network.Endpoint {
+	switch conf.Network.Endpoint {
+	case "tcp":
+		return TcpServer(conf, lg)
+	case "http":
+		return HttpServer(lg)
+	default:
+		return nil
+	}
 }

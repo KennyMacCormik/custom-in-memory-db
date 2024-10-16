@@ -1,0 +1,123 @@
+openapi: 3.0.0
+info:
+  title: RamDB
+  description: |-
+    This is a client section of the Ram DB API spec
+    
+    Some useful links:
+    - [The Ram DB repository](https://github.com/KennyMacCormik/custom-in-memory-db)
+    - [The source API definition for the Ram DB](https://github.com/KennyMacCormik/custom-in-memory-db)
+  version: 1.0.0
+tags:
+  - name: command
+    description: executes command accordng to verb semantics
+paths:
+  /cmd/{Key}:
+    get:
+      tags:
+        - command
+      summary: Get value by Key
+      description: Returns a value for a provided `Key`. `Key` should match `/(\w+)/g` regex
+      parameters:
+        - name: Key
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "my-key"
+            pattern: '/(\w+)/g'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Err'
+    delete:
+      tags:
+        - command
+      summary: Delete Key
+      description: Delete provided `Key` and it's corresponding value. `Key` should match `/(\w+)/g` regex
+      parameters:
+        - name: Key
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "my-key"
+            pattern: '/(\w+)/g'
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Err'
+  /cmd:
+    put:
+      tags:
+        - command
+      summary: Set Key with Value
+      description: Creates a new `Key` with provided `Value` or provided key with corresponding value. `Key` and `Value` should match `/(\w+)/g` regex
+      requestBody:
+        description: Update an existent `Key` with `Value` or create anew `Key` with `Value`
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Content'
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Err'
+    post:
+      tags:
+        - command
+      summary: Set Key with Value
+      description: Creates a new `Key` with provided `Value` or provided key with corresponding value. `Key` and `Value` should match `/(\w+)/g` regex
+      requestBody:
+        description: Update an existent `Key` with `Value` or create anew `Key` with `Value`
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Content'
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Err'
+components:
+  schemas:
+    Err:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "parser.Read().composeCommand().validateArgs() failed: got \"k3y/!_value*\", expected \"alphanum|numeric|alpha|containsany=*_/,excludesall=!\\\"#$%&'()+0x2C-.:;<=>?@[]^`{}0x7C~,printascii\""
+    Content:
+      type: object
+      properties:
+        Key:
+          type: string
+          example: "my-key"
+          pattern: '/(\w+)/g'
+        Value:
+          type: string
+          example: "my/val"
+          pattern: '/(\w+)/g'

@@ -31,6 +31,7 @@ func TestConfig_Positive_AllPresent(t *testing.T) {
 			"APP_STORAGE": "map",
 			"APP_INPUT":   "tcp4",
 			// type Network struct
+			"NET_ENDPOINT":     "http",
 			"NET_ADDR":         "0.0.0.0",
 			"NET_PORT":         "8080",
 			"NET_MAX_CONN":     "100",
@@ -70,6 +71,7 @@ func TestConfig_Positive_AllOptionalMissing(t *testing.T) {
 			"APP_STORAGE": "map",
 			"APP_INPUT":   "",
 			// type Network struct
+			"NET_ENDPOINT":     "",
 			"NET_ADDR":         "0.0.0.0",
 			"NET_PORT":         "8080",
 			"NET_MAX_CONN":     "",
@@ -110,6 +112,7 @@ func TestConfig_Negative_AllMissing(t *testing.T) {
 			"APP_STORAGE": "",
 			"APP_INPUT":   "",
 			// type Network struct
+			"NET_ENDPOINT":     "",
 			"NET_ADDR":         "",
 			"NET_PORT":         "",
 			"NET_MAX_CONN":     "",
@@ -145,6 +148,7 @@ func TestConfig_Negative_NET_ADDR_Missing(t *testing.T) {
 			"APP_STORAGE": "map",
 			"APP_INPUT":   "",
 			// type Network struct
+			"NET_ENDPOINT":     "",
 			"NET_ADDR":         "",
 			"NET_PORT":         "",
 			"NET_MAX_CONN":     "",
@@ -180,6 +184,7 @@ func TestConfig_Negative_NET_PORT_Missing(t *testing.T) {
 			"APP_STORAGE": "map",
 			"APP_INPUT":   "",
 			// type Network struct
+			"NET_ENDPOINT":     "",
 			"NET_ADDR":         "0.0.0.0",
 			"NET_PORT":         "",
 			"NET_MAX_CONN":     "",
@@ -217,6 +222,7 @@ func TestConfig_Negative_BogusArg_APP_STORAGE(t *testing.T) {
 			"APP_STORAGE": "memo",
 			"APP_INPUT":   "tcp4",
 			// type Network struct
+			"NET_ENDPOINT":     "",
 			"NET_ADDR":         "0.0.0.0",
 			"NET_PORT":         "8080",
 			"NET_MAX_CONN":     "100",
@@ -243,6 +249,41 @@ func TestConfig_Negative_BogusArg_APP_STORAGE(t *testing.T) {
 }
 
 // Network
+func TestConfig_Negative_BogusArg_NET_ENDPOINT(t *testing.T) {
+	testCase := struct {
+		env map[string]string
+		err string
+	}{
+		env: map[string]string{
+			// type Engine struct
+			"APP_STORAGE": "map",
+			"APP_INPUT":   "tcp4",
+			// type Network struct
+			"NET_ENDPOINT":     "tcpp",
+			"NET_ADDR":         "0.0.0.1111",
+			"NET_PORT":         "8080",
+			"NET_MAX_CONN":     "100",
+			"NET_MESSAGE_SIZE": "4",
+			"NET_TIMEOUT":      "60s",
+			// type Logging struct
+			"LOG_FORMAT": "text",
+			"LOG_LEVEL":  "debug",
+			// type Wal struct
+			"WAL_BATCH_SIZE":    "100",
+			"WAL_BATCH_TIMEOUT": "10s",
+			"WAL_SEG_SIZE":      "4",
+			"WAL_SEG_PATH":      "./",
+		},
+		err: "config validation error: field 'Endpoint' value 'tcpp' invalid, 'oneof=tcp http' expected; field 'Host' value '0.0.0.1111' invalid, 'ip4_addr' expected;",
+	}
+
+	setEnv(testCase.env)
+	defer unsetEnv(testCase.env)
+
+	conf := Config{}
+	err := conf.New()
+	assert.EqualError(t, err, testCase.err)
+}
 
 func TestConfig_Negative_BogusArg_NET_ADDR(t *testing.T) {
 	testCase := struct {

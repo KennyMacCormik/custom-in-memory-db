@@ -15,7 +15,7 @@ import (
 // The network must be "tcp", "tcp4", "tcp6", "unix" or "unixpacket".
 const listenNetwork = "tcp4"
 
-type TcpServer struct {
+type Server struct {
 	listener net.Listener
 	deadline time.Duration
 	maxConn  int
@@ -27,7 +27,7 @@ func (c *connMeter) new(maxConn int) {
 	c.cond = sync.NewCond(&c.mtx)
 }
 
-func (s *TcpServer) New(host, port string, deadline time.Duration, maxConn int, lg *slog.Logger) error {
+func (s *Server) New(host, port string, deadline time.Duration, maxConn int, lg *slog.Logger) error {
 	const suf = "TcpServer.New()"
 	var err error
 	address := strings.Join([]string{host, port}, ":")
@@ -42,11 +42,11 @@ func (s *TcpServer) New(host, port string, deadline time.Duration, maxConn int, 
 	return nil
 }
 
-func (s *TcpServer) Close() error {
+func (s *Server) Close() error {
 	return s.listener.Close()
 }
 
-func (s *TcpServer) Listen(f network.Handler) {
+func (s *Server) Listen(f network.Handler) {
 	var msg string
 	var cm connMeter
 	if s.maxConn > 0 {
@@ -65,7 +65,7 @@ func (s *TcpServer) Listen(f network.Handler) {
 	}
 }
 
-func (s *TcpServer) handleClient(conn net.Conn, cm *connMeter, handler network.Handler, lg *slog.Logger) {
+func (s *Server) handleClient(conn net.Conn, cm *connMeter, handler network.Handler, lg *slog.Logger) {
 	const suf = "server.handleClient()"
 	defer cm.decConnCount()
 	defer conn.Close()
