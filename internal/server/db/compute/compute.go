@@ -5,13 +5,15 @@ import (
 	"custom-in-memory-db/internal/server/db/storage"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 )
 
-const defaultOk = "OK"
+const defaultOk = "OK\n"
 
 type Compute interface {
 	Exec(cmd parser.Command, lg *slog.Logger) (string, error)
+	Close() error
 }
 
 // Comp is an instance of the Compute interface
@@ -24,22 +26,28 @@ func (c *Comp) New(st storage.Storage) {
 	c.st = st
 }
 
+func (c *Comp) Close() error {
+	closer, ok := c.st.(io.Closer)
+	if ok {
+		return closer.Close()
+	}
+
+	return nil
+}
+
 func (c *Comp) Exec(cmd parser.Command, lg *slog.Logger) (string, error) {
 	switch cmd.Command {
 	case "GET":
-		r, err := c.st.Get(cmd.Args[0])
+		r, err := c.st.Get(cmd.Arg1)
 		if err != nil {
 			return "", fmt.Errorf("error getting value: %v", err)
 		}
 		return r, nil
 	case "SET":
-		err := c.st.Set(cmd.Args[0], cmd.Args[1])
-		if err != nil {
-			return "", fmt.Errorf("error settings value: %v", err)
-		}
+		_ = c.st.Set(cmd.Arg1, cmd.Arg2)
 		return defaultOk, nil
 	case "DEL":
-		err := c.st.Del(cmd.Args[0])
+		err := c.st.Del(cmd.Arg1)
 		if err != nil {
 			return "", fmt.Errorf("error deleting value: %v", err)
 		}

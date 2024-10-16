@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/ilyakaznacheev/cleanenv"
@@ -12,36 +13,45 @@ import (
 const KB = 1024
 
 type Engine struct {
-	APP_STORAGE string `env:"APP_STORAGE" env-required:"true" env-description:"storage driver" validate:"oneof=mem wal"`
-	APP_INPUT   string `env:"APP_INPUT" env-default:"tcp4" env-description:"how server accept commands" validate:"oneof=stdin tcp4"`
-}
-
-type Network struct {
-	NET_ADDR         string        `env:"NET_ADDR" env-required:"true" env-description:"address to listen" validate:"ip4_addr"`
-	NET_PORT         int           `env:"NET_PORT" env-required:"true" env-description:"port to listen" validate:"numeric,gt=0,lt=65536"`
-	NET_MAX_CONN     int           `env:"NET_MAX_CONN" env-default:"100" env-description:"maximum accepted connections" validate:"numeric,gte=0"`
-	NET_MESSAGE_SIZE int           `env:"NET_MESSAGE_SIZE" env-default:"4" env-description:"max message size KB" validate:"numeric,gt=0"`
-	NET_TIMEOUT      time.Duration `env:"NET_TIMEOUT" env-default:"60s" env-description:"idle connection timeout min 1ms" validate:"min=1ms"`
+	Type string `env:"APP_STORAGE" env-required:"true" env-description:"storage driver" validate:"oneof=map wal"`
 }
 
 type Logging struct {
-	LOG_FORMAT string `env:"LOG_FORMAT" env-default:"text" env-description:"log format" validate:"oneof=text json"`
-	LOG_LEVEL  string `env:"LOG_LEVEL" env-default:"debug" env-description:"log level" validate:"oneof=debug info warn error"`
+	Format string `env:"LOG_FORMAT" env-default:"text" env-description:"log format" validate:"oneof=text json"`
+	Level  string `env:"LOG_LEVEL" env-default:"debug" env-description:"log level" validate:"oneof=debug info warn error"`
+}
+
+type Network struct {
+	Host    string        `env:"NET_ADDR" env-required:"true" env-description:"address to listen" validate:"ip4_addr"`
+	Port    int           `env:"NET_PORT" env-required:"true" env-description:"port to listen" validate:"numeric,gt=0,lt=65536"`
+	MaxConn int           `env:"NET_MAX_CONN" env-default:"100" env-description:"maximum accepted connections" validate:"numeric,gte=0"`
+	Timeout time.Duration `env:"NET_TIMEOUT" env-default:"60s" env-description:"idle connection timeout min 1ms" validate:"min=1ms"`
 }
 
 type Wal struct {
-	WAL_BATCH_SIZE    int           `env:"WAL_BATCH_SIZE" env-default:"10" env-description:"connection amount to trigger flush" validate:"numeric,gt=0"`
-	WAL_BATCH_TIMEOUT time.Duration `env:"WAL_BATCH_TIMEOUT" env-default:"1s" env-description:"batch flush timeout min 1s" validate:"min=1ms"`
-	WAL_SEG_SIZE      int           `env:"WAL_SEG_SIZE" env-default:"1" env-description:"segment size on disk KB" validate:"numeric,gt=0"`
-	WAL_SEG_PATH      string        `env:"WAL_SEG_PATH" env-default:"./" env-description:"segment folder" validate:"dir,dirpath"`
-	WAL_SEG_RECOVER   bool          `env:"WAL_SEG_RECOVER" env-default:"true" env-description:"load data from wal to ram" validate:"boolean"`
+	BatchMax     int           `env:"WAL_BATCH_SIZE" env-default:"10" env-description:"max conn collected before writing to wal" validate:"numeric,gt=0"`
+	BatchTimeout time.Duration `env:"WAL_BATCH_TIMEOUT" env-default:"1s" env-description:"batch flush timeout, min 1ms" validate:"min=1ms"`
+	SegSize      int           `env:"WAL_SEG_SIZE" env-default:"1" env-description:"segment size on disk KB, min 1" validate:"numeric,gt=0"`
+	SegPath      string        `env:"WAL_SEG_PATH" env-default:"./" env-description:"segment folder" validate:"dir,dirpath"`
+	Recover      bool          `env:"WAL_SEG_RECOVER" env-default:"true" env-description:"recover from wal on db start" validate:"boolean"`
+}
+
+// Parser struct contains args for Parser interface.
+// Change this at your own risk
+type Parser struct {
+	Eol            byte   `env:"PARSER_EOL" env-default:"10" env-description:"symbol representing end of command"`
+	Trim           string `env:"PARSER_TRIM" env-default:" \t\n" env-description:"trim set for each arg and command itself"`
+	Sep            string `env:"PARSER_SEP" env-default:" " env-description:"separator between args and command itself"`
+	ToReplaceBySep string `env:"PARSER_REPBYSEP" env-default:"\t" env-description:"replace set for separator"`
+	Tag            string "env:\"PARSER_TAG\" env-default:\"alphanum|numeric|alpha|containsany=*_/,excludesall=!\"#$%&'()+0x2C-.:;<=>?@[]^`{}0x7C~,printascii\" env-description:\"default tag for validator\""
 }
 
 type Config struct {
-	Engine Engine
-	Net    Network
-	Log    Logging
-	Wal    Wal
+	Engine  Engine
+	Network Network
+	Logging Logging
+	Wal     Wal
+	Parser  Parser
 }
 
 func (c *Config) validate() error {
@@ -63,11 +73,10 @@ func (c *Config) New() error {
 
 	err = c.validate()
 	if err != nil {
-		return fmt.Errorf("config validation error: %s", c.handleValidatorError(err))
+		return fmt.Errorf("config validation error: %w", errors.New(c.handleValidatorError(err)))
 	}
 
-	c.Net.NET_MESSAGE_SIZE *= KB
-	c.Wal.WAL_SEG_SIZE *= KB
+	c.Wal.SegSize *= KB
 
 	return nil
 }
