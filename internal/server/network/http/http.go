@@ -3,6 +3,7 @@ package http
 import (
 	"custom-in-memory-db/internal/server/network"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -33,18 +34,37 @@ func (s *Server) New(lg *slog.Logger) {
 	if !s.initDone {
 		s.initDone = true
 		s.lg = lg
-		s.router = gin.Default()
+		s.initGin()
 	}
+}
+
+func (s *Server) initGin() {
+	s.router = gin.New()
+	s.router.Use(gin.Recovery())
+	_ = s.router.SetTrustedProxies(nil)
 }
 
 func (s *Server) initHandlers(clientHandler network.Handler) {
 	s.cmdHandlers(clientHandler)
 }
 
+func (s *Server) connLog(c *gin.Context) *slog.Logger {
+	uid := uuid.New()
+	lg := s.lg.With("ID", uid,
+		"ClientIP", c.ClientIP(),
+		"Method", c.Request.Method,
+		"Path", c.Request.URL.Path,
+		"Proto", c.Request.Proto,
+		"Headers", c.Request.Header,
+	)
+	lg.Info("connection accepted")
+	return lg
+}
+
 func (s *Server) cmdHandlers(clientHandler network.Handler) {
 	s.router.GET("/cmd/:key", func(c *gin.Context) {
 		key := c.Param("key")
-		result, err := clientHandler(strings.NewReader(strings.Join([]string{"GET", key, "\n"}, " ")), s.lg)
+		result, err := clientHandler(strings.NewReader(strings.Join([]string{"GET", key, "\n"}, " ")), s.connLog(c))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, errMsg{err.Error()})
 			return
@@ -56,7 +76,7 @@ func (s *Server) cmdHandlers(clientHandler network.Handler) {
 	})
 	s.router.DELETE("/cmd/:key", func(c *gin.Context) {
 		key := c.Param("key")
-		_, err := clientHandler(strings.NewReader(strings.Join([]string{"DEL", key, "\n"}, " ")), s.lg)
+		_, err := clientHandler(strings.NewReader(strings.Join([]string{"DEL", key, "\n"}, " ")), s.connLog(c))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, errMsg{err.Error()})
 			return
@@ -68,7 +88,7 @@ func (s *Server) cmdHandlers(clientHandler network.Handler) {
 		var body payload
 		err := c.BindJSON(&body)
 		if err == nil {
-			_, err = clientHandler(strings.NewReader(strings.Join([]string{"SET", body.Key, body.Value, "\n"}, " ")), s.lg)
+			_, err = clientHandler(strings.NewReader(strings.Join([]string{"SET", body.Key, body.Value, "\n"}, " ")), s.connLog(c))
 			if err != nil {
 				c.JSON(http.StatusBadRequest, errMsg{err.Error()})
 			}
