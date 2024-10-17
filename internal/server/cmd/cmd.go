@@ -40,11 +40,11 @@ type Wal struct {
 // Parser struct contains args for Parser interface.
 // Change this at your own risk
 type Parser struct {
-	Eol            byte   `env:"PARSER_EOL" env-default:"10" env-description:"symbol representing end of command"`
-	Trim           string `env:"PARSER_TRIM" env-default:" \t\n" env-description:"trim set for each arg and command itself"`
-	Sep            string `env:"PARSER_SEP" env-default:" " env-description:"separator between args and command itself"`
-	ToReplaceBySep string `env:"PARSER_REPBYSEP" env-default:"\t" env-description:"replace set for separator"`
-	Tag            string "env:\"PARSER_TAG\" env-default:\"alphanum|numeric|alpha|containsany=*_/,excludesall=!\"#$%&'()+0x2C-.:;<=>?@[]^`{}0x7C~,printascii\" env-description:\"default tag for validator\""
+	Eol            byte   `env:"PARSER_EOL" env-description:"symbol representing end of command"`
+	Trim           string `env:"PARSER_TRIM" env-description:"trim set for each arg and command itself"`
+	Sep            string `env:"PARSER_SEP" env-description:"separator between args and command itself"`
+	ToReplaceBySep string `env:"PARSER_REPBYSEP" env-description:"replace set for separator"`
+	Tag            string `env:"PARSER_TAG"  env-description:"default tag for validator"`
 }
 
 type Config struct {

@@ -1,23 +1,25 @@
 pools:
-  - id: Ram DB client                    # pool name (for your choice)
+  - id: Ram DB client
     gun:
-      type: http                     # gun type
-      target: localhost:8080         # gun target
+      type: http
+      target: localhost:8080
+      dial:
+        timeout: 1s
     ammo:
-      type: http/json                      # ammo format
-      file: ./ammo               # ammo File
+      type: http/json
+      file: ./simple
     result:
-      type: phout                    # report format (phout is compatible with Yandex.Tank)
-      destination: ./phout.log       # report file name
+      type: phout
+      destination: ./phout.log
 
     rps-per-instance: false          # rps section is counted for each instance or for the whole test. false - for the whole test
     discard_overflow: true           # strict adherence to the request schedule
 
-    rps:                             # shooting schedule
-      type: const                      # linear growth
-      ops: 200                          # to 5 responses per second
-      duration: 60s                  # for 60 seconds
+    rps:
+      type: const
+      ops: 100
+      duration: 60s
 
-    startup:                         # instances startup schedule
-      type: once                     # start 10 instances
+    startup:
+      type: once
       times: 10

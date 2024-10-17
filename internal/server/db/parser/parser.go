@@ -12,10 +12,11 @@ import (
 	"strings"
 )
 
-//const Eol = '\n'
-//const Trim = " \t\n"
-//const Sep = " "
-//const ToReplace = "\t"
+const eol = '\n'
+const trim = " \t\n"
+const sep = " "
+const ToReplaceBySep = "\t"
+const tag = "alphanum|numeric|alpha|containsany=*_/,excludesall=!\"#$%&'()+0x2C-.:;<=>?@[]^`{}0x7C~,printascii"
 
 type Command struct {
 	Command string
@@ -42,11 +43,36 @@ type Parse struct {
 func (p *Parse) New(conf cmd.Config) {
 	if !p.initDone {
 		p.initDone = true
-		p.eol = conf.Parser.Eol
-		p.trim = conf.Parser.Trim
-		p.sep = conf.Parser.Sep
-		p.toReplaceBySep = conf.Parser.ToReplaceBySep
-		p.tag = conf.Parser.Tag
+
+		if conf.Parser.Eol == 0 {
+			p.eol = eol
+		} else {
+			p.eol = conf.Parser.Eol
+		}
+
+		if conf.Parser.Trim == "" {
+			p.trim = trim
+		} else {
+			p.trim = conf.Parser.Trim
+		}
+
+		if conf.Parser.Sep == "" {
+			p.sep = sep
+		} else {
+			p.sep = conf.Parser.Sep
+		}
+
+		if conf.Parser.ToReplaceBySep == "" {
+			p.toReplaceBySep = ToReplaceBySep
+		} else {
+			p.toReplaceBySep = conf.Parser.ToReplaceBySep
+		}
+
+		if conf.Parser.Tag == "" {
+			p.tag = tag
+		} else {
+			p.tag = conf.Parser.Tag
+		}
 	}
 }
 
