@@ -9,7 +9,9 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type payload struct {
@@ -24,18 +26,32 @@ type errMsg struct {
 type Server struct {
 	initDone bool
 
+	timeout time.Duration
+	addr    string
+
 	lg     *slog.Logger
 	router *gin.Engine
 }
 
 func (s *Server) Listen(f network.Handler) {
 	s.initHandlers(f)
-	_ = s.router.Run()
+	server := &http.Server{
+		Addr:         s.addr,
+		Handler:      s.router,
+		ReadTimeout:  s.timeout,
+		WriteTimeout: s.timeout,
+		IdleTimeout:  s.timeout,
+	}
+	_ = server.ListenAndServe()
 }
 
 func (s *Server) New(conf cmd.Config, lg *slog.Logger) {
 	if !s.initDone {
 		s.initDone = true
+
+		s.addr = strings.Join([]string{conf.Network.Host, strconv.Itoa(conf.Network.Port)}, ":")
+		s.timeout = conf.Network.Timeout
+
 		s.lg = lg
 		s.initGin(conf)
 	}
