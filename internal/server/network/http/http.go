@@ -1,11 +1,14 @@
 package http
 
 import (
+	"custom-in-memory-db/internal/server/cmd"
+	"custom-in-memory-db/internal/server/db/storage/wal"
 	"custom-in-memory-db/internal/server/network"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"log/slog"
 	"net/http"
+	"runtime"
 	"strings"
 )
 
@@ -30,24 +33,44 @@ func (s *Server) Listen(f network.Handler) {
 	_ = s.router.Run()
 }
 
-func (s *Server) New(lg *slog.Logger) {
+func (s *Server) New(conf cmd.Config, lg *slog.Logger) {
 	if !s.initDone {
 		s.initDone = true
 		s.lg = lg
-		s.initGin()
+		s.initGin(conf)
 	}
 }
 
-func (s *Server) initGin() {
+func (s *Server) initGin(conf cmd.Config) {
 	s.router = gin.New()
 	s.router.Use(gin.Recovery())
+	s.router.Use(clientConnLimiter(conf))
 	_ = s.router.SetTrustedProxies(nil)
+}
+
+// clientConnLimiter limits the number of goroutines actually doing the job.
+// Neither gin nor http.Server allows to prevent goroutines from spawning, but we can hold them.
+func clientConnLimiter(conf cmd.Config) func(c *gin.Context) {
+	limiter := make(chan struct{}, conf.Network.MaxConn)
+	return func(c *gin.Context) {
+		for {
+			select {
+			case limiter <- struct{}{}:
+				c.Next()
+				<-limiter
+				return
+			default:
+				runtime.Gosched()
+			}
+		}
+	}
 }
 
 func (s *Server) initHandlers(clientHandler network.Handler) {
 	s.cmdHandlers(clientHandler)
 }
 
+// connLog inits logger for each request
 func (s *Server) connLog(c *gin.Context) *slog.Logger {
 	uid := uuid.New()
 	lg := s.lg.With("ID", uid,
@@ -61,12 +84,24 @@ func (s *Server) connLog(c *gin.Context) *slog.Logger {
 	return lg
 }
 
+// cmdHandlers inits handlers for the /cmd path
 func (s *Server) cmdHandlers(clientHandler network.Handler) {
+	isError := func(c *gin.Context, err error) bool {
+		if err != nil {
+			if err == wal.ErrWalWriteFailed {
+				c.JSON(http.StatusInternalServerError, errMsg{err.Error()})
+				return true
+			}
+			c.JSON(http.StatusBadRequest, errMsg{err.Error()})
+			return true
+		}
+		return false
+	}
+
 	s.router.GET("/cmd/:key", func(c *gin.Context) {
 		key := c.Param("key")
 		result, err := clientHandler(strings.NewReader(strings.Join([]string{"GET", key, "\n"}, " ")), s.connLog(c))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, errMsg{err.Error()})
+		if isError(c, err) {
 			return
 		}
 		c.JSON(http.StatusOK, payload{
@@ -77,8 +112,7 @@ func (s *Server) cmdHandlers(clientHandler network.Handler) {
 	s.router.DELETE("/cmd/:key", func(c *gin.Context) {
 		key := c.Param("key")
 		_, err := clientHandler(strings.NewReader(strings.Join([]string{"DEL", key, "\n"}, " ")), s.connLog(c))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, errMsg{err.Error()})
+		if isError(c, err) {
 			return
 		}
 		c.Status(http.StatusOK)
@@ -89,8 +123,8 @@ func (s *Server) cmdHandlers(clientHandler network.Handler) {
 		err := c.BindJSON(&body)
 		if err == nil {
 			_, err = clientHandler(strings.NewReader(strings.Join([]string{"SET", body.Key, body.Value, "\n"}, " ")), s.connLog(c))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, errMsg{err.Error()})
+			if isError(c, err) {
+				return
 			}
 			c.Status(http.StatusOK)
 		}

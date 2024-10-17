@@ -44,7 +44,10 @@ func (c *Comp) Exec(cmd parser.Command, lg *slog.Logger) (string, error) {
 		}
 		return r, nil
 	case "SET":
-		_ = c.st.Set(cmd.Arg1, cmd.Arg2)
+		err := c.st.Set(cmd.Arg1, cmd.Arg2)
+		if err != nil {
+			return "", err
+		}
 		return defaultOk, nil
 	case "DEL":
 		err := c.st.Del(cmd.Arg1)

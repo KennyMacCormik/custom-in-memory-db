@@ -246,6 +246,9 @@ func (w *writer) getCurrSeg(conf cmd.Config) error {
 	if err != nil {
 		return fmt.Errorf("os.ReadDir failed: %w", err)
 	}
+	if len(files) == 0 {
+		return nil
+	}
 	// check if it is filled
 	st, err := os.Stat(files[maxIndex].Name())
 	if err != nil {

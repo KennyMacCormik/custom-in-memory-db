@@ -52,7 +52,7 @@ func (p *Parse) New(conf cmd.Config) {
 
 // Read reads r until Parse.eol and converts it to Command
 func (p *Parse) Read(r io.Reader, lg *slog.Logger) (Command, error) {
-	const suf = "parser.Read() failed"
+	const suf = "parser.Read()"
 
 	bufR := bufio.NewReader(r)
 	str, err := bufR.ReadString(p.eol)

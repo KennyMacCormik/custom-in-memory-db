@@ -25,7 +25,7 @@ type Network struct {
 	Endpoint string        `env:"NET_ENDPOINT" env-default:"http" env-description:"network protocol to work with" validate:"oneof=tcp http"`
 	Host     string        `env:"NET_ADDR" env-required:"true" env-description:"address to listen" validate:"ip4_addr"`
 	Port     int           `env:"NET_PORT" env-required:"true" env-description:"port to listen" validate:"numeric,gt=0,lt=65536"`
-	MaxConn  int           `env:"NET_MAX_CONN" env-default:"100" env-description:"maximum accepted connections" validate:"numeric,gte=0"`
+	MaxConn  int           `env:"NET_MAX_CONN" env-default:"1" env-description:"maximum accepted connections" validate:"numeric,gte=0"`
 	Timeout  time.Duration `env:"NET_TIMEOUT" env-default:"60s" env-description:"idle connection timeout min 1ms" validate:"min=1ms"`
 }
 

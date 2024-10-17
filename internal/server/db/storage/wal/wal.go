@@ -15,7 +15,7 @@ import (
 )
 
 // ErrWalWriteFailed is the error returned by w.write when batch failed to write to wal.
-// (w.write must return EOF itself, not an error wrapping EOF, because callers will test for EOF using ==.)
+// (w.write must return ErrWalWriteFailed itself, not an error wrapping ErrWalWriteFailed, because callers will test for EOF using ==.)
 var ErrWalWriteFailed = errors.New("wal write failed")
 var writeOk = errors.New("ok")
 
@@ -153,18 +153,17 @@ func (s *Storage) write() error {
 	// I'm the only one here
 	defer s.writeHappens.Store(false)
 	defer s.batchSize.Store(0)
-	// TODO handle error
 	batch := []byte(s.batch.Load())
 	batchLen := len(batch)
 	n, err := s.writer.Write(batch)
+	if err != nil {
+		return ErrWalWriteFailed
+	}
 	// wipe only n written bytes
 	if n != batchLen {
 		s.batch.Store(string(batch[batchLen+1:]))
 	} else {
 		s.batch.Store("")
-	}
-	if err != nil {
-		return ErrWalWriteFailed
 	}
 	return writeOk
 }

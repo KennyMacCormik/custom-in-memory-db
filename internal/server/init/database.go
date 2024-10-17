@@ -41,7 +41,7 @@ func initNetworkEndpoint(conf cmd.Config, lg *slog.Logger) network.Endpoint {
 	case "tcp":
 		return TcpServer(conf, lg)
 	case "http":
-		return HttpServer(lg)
+		return HttpServer(conf, lg)
 	default:
 		return nil
 	}
