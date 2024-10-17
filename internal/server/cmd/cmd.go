@@ -4,8 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-playground/validator/v10"
-	"github.com/ilyakaznacheev/cleanenv"
+	"github.com/spf13/viper"
+	"os"
 	"reflect"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -13,46 +16,136 @@ import (
 const KB = 1024
 
 type Engine struct {
-	Type string `env:"APP_STORAGE" env-required:"true" env-description:"storage driver" validate:"oneof=map wal"`
+	// underlying storage. defaults to wal
+	Type string `mapstructure:"storage" validate:"oneof=map wal"`
 }
 
 type Logging struct {
-	Format string `env:"LOG_FORMAT" env-default:"text" env-description:"log format" validate:"oneof=text json"`
-	Level  string `env:"LOG_LEVEL" env-default:"debug" env-description:"log level" validate:"oneof=debug info warn error"`
+	// log format. defaults to text
+	Format string `mapstructure:"log_format" validate:"oneof=text json"`
+	// log level. defaults to info
+	Level string `mapstructure:"log_level" validate:"oneof=debug info warn error"`
 }
 
 type Network struct {
-	Endpoint string        `env:"NET_ENDPOINT" env-default:"http" env-description:"network protocol to work with" validate:"oneof=tcp http"`
-	Host     string        `env:"NET_ADDR" env-required:"true" env-description:"address to listen" validate:"ip4_addr"`
-	Port     int           `env:"NET_PORT" env-required:"true" env-description:"port to listen" validate:"numeric,gt=0,lt=65536"`
-	MaxConn  int           `env:"NET_MAX_CONN" env-default:"1" env-description:"maximum accepted connections" validate:"numeric,gte=0"`
-	Timeout  time.Duration `env:"NET_TIMEOUT" env-default:"60s" env-description:"idle connection timeout min 1ms" validate:"min=1ms"`
+	// network protocol to work with. defaults to http
+	Endpoint string `mapstructure:"net_proto" validate:"oneof=tcp http"`
+	// address to listen. defaults to 0.0.0.0
+	Host string `mapstructure:"net_address" validate:"ip4_addr"`
+	// port to listen. defaults to 8080
+	Port int `mapstructure:"net_port" validate:"numeric,gt=0,lt=65536"`
+	// maximum accepted connections. Defaults to runtime.NumCPU()
+	MaxConn int `mapstructure:"net_max_conn" validate:"numeric,gte=0"`
+	// idle connection timeout min 1ms. defaults to 1s
+	Timeout time.Duration `mapstructure:"net_timeout" validate:"min=1ms"`
 }
 
 type Wal struct {
-	BatchMax     int           `env:"WAL_BATCH_SIZE" env-default:"10" env-description:"max conn collected before writing to wal" validate:"numeric,gt=0"`
-	BatchTimeout time.Duration `env:"WAL_BATCH_TIMEOUT" env-default:"1s" env-description:"batch flush timeout, min 1ms" validate:"min=1ms"`
-	SegSize      int           `env:"WAL_SEG_SIZE" env-default:"1" env-description:"segment size on disk KB, min 1" validate:"numeric,gt=0"`
-	SegPath      string        `env:"WAL_SEG_PATH" env-default:"./" env-description:"segment folder" validate:"dir,dirpath"`
-	Recover      bool          `env:"WAL_SEG_RECOVER" env-default:"true" env-description:"recover from wal on db start" validate:"boolean"`
-}
-
-// Parser struct contains args for Parser interface.
-// Change this at your own risk
-type Parser struct {
-	Eol            byte   `env:"PARSER_EOL" env-description:"symbol representing end of command"`
-	Trim           string `env:"PARSER_TRIM" env-description:"trim set for each arg and command itself"`
-	Sep            string `env:"PARSER_SEP" env-description:"separator between args and command itself"`
-	ToReplaceBySep string `env:"PARSER_REPBYSEP" env-description:"replace set for separator"`
-	Tag            string `env:"PARSER_TAG"  env-description:"default tag for validator"`
+	// max conn collected before writing to wal. defaults to runtime.NumCPU()
+	BatchMax int `mapstructure:"wal_batch_max" validate:"numeric,gt=0"`
+	// batch flush timeout, min 1ms. defaults to 1s
+	BatchTimeout time.Duration `mapstructure:"wal_batch_timeout" validate:"min=1ms"`
+	// segment size on disk KB, min 1. defaults to 1
+	SegSize int `mapstructure:"wal_seg_size" validate:"numeric,gt=0"`
+	// segment folder. defaults to os.Getwd
+	SegPath string `mapstructure:"wal_seg_path" validate:"dir,dirpath"`
+	// recover from wal on db start. defaults to true
+	Recover bool `mapstructure:"wal_replay" validate:"boolean"`
 }
 
 type Config struct {
-	Engine  Engine
-	Network Network
-	Logging Logging
-	Wal     Wal
-	Parser  Parser
+	initDone bool
+	Engine   Engine  `mapstructure:",squash"`
+	Network  Network `mapstructure:",squash"`
+	Logging  Logging `mapstructure:",squash"`
+	Wal      Wal     `mapstructure:",squash"`
+}
+
+func (c *Config) New() error {
+	if !c.initDone {
+		c.initDone = true
+
+		err := c.loadEnv()
+		if err != nil {
+			return fmt.Errorf("config unmarshalling error: %w", err)
+		}
+
+		err = c.validate()
+		if err != nil {
+			return fmt.Errorf("config validation error: %w", errors.New(c.handleValidatorError(err)))
+		}
+
+		c.Wal.SegSize *= KB
+	}
+
+	return nil
+}
+
+func (c *Config) loadEnv() error {
+	viper.SetEnvPrefix("ramdb")
+
+	c.setEngineEnv()
+	c.setLoggingEnv()
+	c.setNetworkEnv()
+	c.setWalEnv()
+
+	viper.AutomaticEnv()
+	return viper.Unmarshal(c)
+}
+
+func (c *Config) setWalEnv() {
+	viper.SetDefault("wal_batch_max", strconv.Itoa(runtime.NumCPU()))
+	_ = viper.BindEnv("wal_batch_max")
+
+	viper.SetDefault("wal_batch_timeout", "1s")
+	_ = viper.BindEnv("wal_batch_timeout")
+
+	viper.SetDefault("wal_seg_size", "1")
+	_ = viper.BindEnv("wal_seg_size")
+
+	path, err := os.Getwd()
+	if err != nil {
+		if runtime.GOOS == "windows" {
+			path = ".\\"
+		} else {
+			path = "./"
+		}
+	}
+	viper.SetDefault("wal_seg_path", path)
+	_ = viper.BindEnv("wal_seg_path")
+
+	viper.SetDefault("wal_replay", "true")
+	_ = viper.BindEnv("wal_replay")
+}
+
+func (c *Config) setNetworkEnv() {
+	viper.SetDefault("net_proto", "http")
+	_ = viper.BindEnv("net_proto")
+
+	viper.SetDefault("net_address", "0.0.0.0")
+	_ = viper.BindEnv("net_address")
+
+	viper.SetDefault("net_port", "8080")
+	_ = viper.BindEnv("net_port")
+
+	viper.SetDefault("net_max_conn", strconv.Itoa(runtime.NumCPU()))
+	_ = viper.BindEnv("net_max_conn")
+
+	viper.SetDefault("net_timeout", "1s")
+	_ = viper.BindEnv("net_timeout")
+}
+
+func (c *Config) setLoggingEnv() {
+	viper.SetDefault("log_format", "text")
+	_ = viper.BindEnv("format")
+
+	viper.SetDefault("log_level", "info")
+	_ = viper.BindEnv("level")
+}
+
+func (c *Config) setEngineEnv() {
+	viper.SetDefault("storage", "wal")
+	_ = viper.BindEnv("storage")
 }
 
 func (c *Config) validate() error {
@@ -62,22 +155,6 @@ func (c *Config) validate() error {
 	if err != nil {
 		return err
 	}
-
-	return nil
-}
-
-func (c *Config) New() error {
-	err := cleanenv.ReadEnv(c)
-	if err != nil {
-		return fmt.Errorf("could not read config from ENV: %w", err)
-	}
-
-	err = c.validate()
-	if err != nil {
-		return fmt.Errorf("config validation error: %w", errors.New(c.handleValidatorError(err)))
-	}
-
-	c.Wal.SegSize *= KB
 
 	return nil
 }
@@ -105,10 +182,12 @@ func (c *Config) reflectActualTag(sf string) string {
 	for i := 0; i < ref.NumField(); i++ {
 		fieldName := ref.Field(i).Name
 		field, _ := ref.FieldByName(fieldName)
-		for j := 0; j < field.Type.NumField(); j++ {
-			intFieldName := field.Type.Field(j)
-			if intFieldName.Name == sf {
-				return intFieldName.Tag.Get("validate")
+		if field.Type.Name() != "bool" {
+			for j := 0; j < field.Type.NumField(); j++ {
+				intFieldName := field.Type.Field(j)
+				if intFieldName.Name == sf {
+					return intFieldName.Tag.Get("validate")
+				}
 			}
 		}
 	}

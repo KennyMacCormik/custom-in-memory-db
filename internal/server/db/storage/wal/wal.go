@@ -116,9 +116,9 @@ func (s *Storage) addToBuff(args ...string) {
 	cmnd = strings.Join([]string{cmnd, "\n"}, "")
 
 	for {
-		old := s.batch.Load()
-		new := strings.Join([]string{old, cmnd}, "")
-		if !s.writeHappens.Load() && s.batchSize.Load() < s.batchMax && s.batch.CompareAndSwap(old, new) {
+		oldVal := s.batch.Load()
+		newVal := strings.Join([]string{oldVal, cmnd}, "")
+		if !s.writeHappens.Load() && s.batchSize.Load() < s.batchMax && s.batch.CompareAndSwap(oldVal, newVal) {
 			// This doesn't ensure strict batch size. Overflow might happen
 			// Is it possible to make two CAS at once?
 			s.batchSize.Add(1)
@@ -131,7 +131,11 @@ func (s *Storage) addToBuff(args ...string) {
 func (s *Storage) waitForWrite() error {
 	heads := s.coin.Load()
 	for {
-		if s.coin.Load() != heads || s.batchSize.Load() >= s.batchMax {
+		if s.coin.Load() != heads {
+			err := s.write()
+			return err
+		}
+		if s.batchSize.Load() >= s.batchMax {
 			err := s.write()
 			return err
 		}

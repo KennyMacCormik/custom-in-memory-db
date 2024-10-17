@@ -21,7 +21,7 @@ func Database(conf cmd.Config, lg *slog.Logger) *db.Database {
 
 	comp := Compute(st, lg)
 
-	pr := Parser(conf, lg)
+	pr := Parser(lg)
 
 	net := initNetworkEndpoint(conf, lg)
 	if net == nil {

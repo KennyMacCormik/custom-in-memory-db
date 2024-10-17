@@ -17,9 +17,9 @@ pools:
 
     rps:
       type: const
-      ops: 100
+      ops: 200
       duration: 60s
 
     startup:
       type: once
-      times: 10
+      times: 12 #set no less than runtime.MaxCPU() or GOMAXPROCS

@@ -2,7 +2,6 @@ package parser
 
 import (
 	"bufio"
-	"custom-in-memory-db/internal/server/cmd"
 	"errors"
 	"fmt"
 	"github.com/go-playground/validator/v10"
@@ -40,39 +39,14 @@ type Parse struct {
 
 // New used to initialize Storage.
 // Any initializations after the first one won't take effect
-func (p *Parse) New(conf cmd.Config) {
+func (p *Parse) New() {
 	if !p.initDone {
 		p.initDone = true
-
-		if conf.Parser.Eol == 0 {
-			p.eol = eol
-		} else {
-			p.eol = conf.Parser.Eol
-		}
-
-		if conf.Parser.Trim == "" {
-			p.trim = trim
-		} else {
-			p.trim = conf.Parser.Trim
-		}
-
-		if conf.Parser.Sep == "" {
-			p.sep = sep
-		} else {
-			p.sep = conf.Parser.Sep
-		}
-
-		if conf.Parser.ToReplaceBySep == "" {
-			p.toReplaceBySep = ToReplaceBySep
-		} else {
-			p.toReplaceBySep = conf.Parser.ToReplaceBySep
-		}
-
-		if conf.Parser.Tag == "" {
-			p.tag = tag
-		} else {
-			p.tag = conf.Parser.Tag
-		}
+		p.eol = eol
+		p.trim = trim
+		p.sep = sep
+		p.toReplaceBySep = ToReplaceBySep
+		p.tag = tag
 	}
 }
 

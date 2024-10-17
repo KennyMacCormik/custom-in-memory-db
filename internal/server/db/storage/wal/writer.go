@@ -159,7 +159,7 @@ func (w *writer) getRotationIndex(s []byte) int {
 // isRotate defines if a seg file needs rotation after writing s bytes.
 // Uses errMargin in its calculations
 func (w *writer) isRotate(s []byte) bool {
-	st, err := os.Stat(w.walDir + strconv.Itoa(w.currSeg))
+	st, err := os.Stat(path.Join(w.walDir, strconv.Itoa(w.currSeg)))
 	if err != nil {
 		return false
 	}
@@ -169,7 +169,7 @@ func (w *writer) isRotate(s []byte) bool {
 
 // isOverflow defines if seg file will exceed WAL_SEG_SIZE after writing s bytes.
 func (w *writer) isOverflow(s []byte) bool {
-	st, err := os.Stat(w.walDir + strconv.Itoa(w.currSeg))
+	st, err := os.Stat(path.Join(w.walDir, strconv.Itoa(w.currSeg)))
 	if err != nil {
 		return false
 	}
@@ -180,7 +180,7 @@ func (w *writer) isOverflow(s []byte) bool {
 // tryWrite writes s bytes to currFile and calls fsync
 func (w *writer) tryWrite(s []byte) (int, error) {
 	// ensure file exists
-	_, err := os.Stat(w.walDir + strconv.Itoa(w.currSeg))
+	_, err := os.Stat(path.Join(w.walDir, strconv.Itoa(w.currSeg)))
 	if err != nil {
 		return -1, fmt.Errorf("os.Stat failed: %w", err)
 	}
@@ -200,7 +200,7 @@ func (w *writer) tryWrite(s []byte) (int, error) {
 
 // tryRotate closes tryRotate and creates new seg file
 func (w *writer) tryRotate() error {
-	_, err := os.Stat(w.walDir + strconv.Itoa(w.currSeg))
+	_, err := os.Stat(path.Join(w.walDir, strconv.Itoa(w.currSeg)))
 	if err != nil {
 		return fmt.Errorf("os.Stat failed: %w", err)
 	}
@@ -221,9 +221,10 @@ func (w *writer) tryRotate() error {
 // newSegment creates a new segment file if no currSeg exists. Opens an existing seg file otherwise
 func (w *writer) newSegment() error {
 	w.currSeg++
+	var targetPath = path.Join(w.walDir, strconv.Itoa(w.currSeg))
 	// no next file exists
-	if _, err := os.Stat(w.walDir + strconv.Itoa(w.currSeg)); errors.Is(err, os.ErrNotExist) {
-		file, err := os.Create(w.walDir + strconv.Itoa(w.currSeg))
+	if _, err := os.Stat(targetPath); errors.Is(err, os.ErrNotExist) {
+		file, err := os.Create(targetPath)
 		if err != nil {
 			return fmt.Errorf("os.Create failed: %v", err)
 		}
@@ -231,7 +232,7 @@ func (w *writer) newSegment() error {
 		return nil
 	}
 	// open an existing file
-	file, err := os.OpenFile(w.walDir+strconv.Itoa(w.currSeg), os.O_APPEND|os.O_WRONLY, 0666)
+	file, err := os.OpenFile(targetPath, os.O_APPEND|os.O_WRONLY, 0666)
 	if err != nil {
 		return fmt.Errorf("os.Open failed: %v", err)
 	}

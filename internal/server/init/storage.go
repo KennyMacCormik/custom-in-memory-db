@@ -18,7 +18,7 @@ func initMapStorage(lg *slog.Logger) (storage.Storage, error) {
 
 func initWalStorage(conf cmd.Config, lg *slog.Logger) (storage.Storage, error) {
 	st := wal.Storage{}
-	pr := Parser(conf, lg)
+	pr := Parser(lg)
 	err := st.New(conf)
 	if err == nil {
 		if conf.Wal.Recover {
