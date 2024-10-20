@@ -1,42 +1,19 @@
 package tcp
 
 import (
+	"custom-in-memory-db/internal/server/network"
 	"fmt"
 	"github.com/google/uuid"
-	"io"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
 
-type connMeter struct {
-	currConn int
-	maxConn  int
-	mtx      sync.Mutex
-	cond     *sync.Cond
-}
-
-// incConnCount only allows further execution if maxConn is less than goMax
-func (c *connMeter) incConnCount() {
-	c.cond.L.Lock()
-	defer c.cond.L.Unlock()
-
-	for c.currConn == c.maxConn {
-		c.cond.Wait()
-	}
-
-	c.currConn++
-}
-
-// decConnCount decrements maxConn and calls waiting Server
-func (c *connMeter) decConnCount() {
-	c.cond.L.Lock()
-	defer c.cond.L.Unlock()
-
-	c.currConn--
-	c.cond.Signal()
-}
+// From https://pkg.go.dev/net#Listen.
+// The network must be "tcp", "tcp4", "tcp6", "unix" or "unixpacket".
+const listenNetwork = "tcp4"
 
 type Server struct {
 	listener net.Listener
@@ -45,36 +22,36 @@ type Server struct {
 	lg       *slog.Logger
 }
 
-type Handler func(r io.Reader, lg *slog.Logger) (string, error)
-
-func (c *connMeter) New(maxConn int) {
+func (c *connMeter) new(maxConn int) {
 	c.maxConn = maxConn
 	c.cond = sync.NewCond(&c.mtx)
 }
 
-func (s *Server) New(ip, port string, deadline time.Duration, maxConn int, lg *slog.Logger) error {
+func New(host, port string, deadline time.Duration, maxConn int, lg *slog.Logger) (network.Endpoint, error) {
+	const suf = "TcpServer.New()"
 	var err error
-
-	s.listener, err = net.Listen("tcp4", ip+":"+port)
+	s := Server{}
+	address := strings.Join([]string{host, port}, ":")
+	s.listener, err = net.Listen(listenNetwork, address)
 	if err != nil {
-		return fmt.Errorf("tcp listener init error: %w", err)
+		return nil, fmt.Errorf("%s failed: %w", suf, err)
 	}
 	s.deadline = deadline
 	s.maxConn = maxConn
 	s.lg = lg
 
-	return nil
+	return &s, nil
 }
 
 func (s *Server) Close() error {
 	return s.listener.Close()
 }
 
-func (s *Server) Listen(f Handler) {
+func (s *Server) Listen(f network.Handler) {
 	var msg string
 	var cm connMeter
 	if s.maxConn > 0 {
-		cm.New(s.maxConn)
+		cm.new(s.maxConn)
 	}
 
 	for {
@@ -89,7 +66,7 @@ func (s *Server) Listen(f Handler) {
 	}
 }
 
-func (s *Server) handleClient(conn net.Conn, cm *connMeter, handler Handler, lg *slog.Logger) {
+func (s *Server) handleClient(conn net.Conn, cm *connMeter, handler network.Handler, lg *slog.Logger) {
 	const suf = "server.handleClient()"
 	defer cm.decConnCount()
 	defer conn.Close()
@@ -120,4 +97,32 @@ func (s *Server) handleClient(conn net.Conn, cm *connMeter, handler Handler, lg 
 		ilg.Error(fmt.Sprintf("%s.conn.Write()", suf), "error", err.Error())
 	}
 	ilg.Debug(fmt.Sprintf("%s", suf), "respondedToClient", "done")
+}
+
+type connMeter struct {
+	currConn int
+	maxConn  int
+	mtx      sync.Mutex
+	cond     *sync.Cond
+}
+
+// incConnCount only allows further execution if maxConn is less than goMax
+func (c *connMeter) incConnCount() {
+	c.cond.L.Lock()
+	defer c.cond.L.Unlock()
+
+	for c.currConn == c.maxConn {
+		c.cond.Wait()
+	}
+
+	c.currConn++
+}
+
+// decConnCount decrements maxConn and calls waiting Server
+func (c *connMeter) decConnCount() {
+	c.cond.L.Lock()
+	defer c.cond.L.Unlock()
+
+	c.currConn--
+	c.cond.Signal()
 }

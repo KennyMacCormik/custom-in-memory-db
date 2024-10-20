@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"io"
+	"log/slog"
 	"testing"
 )
 
@@ -15,13 +17,22 @@ const getValue = "2"
 const nilResult = ""
 const setKey = "1"
 const setValue = "2"
-const success = "OK"
+const success = "OK\n"
 const delKey = "1"
+
+var nilLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 func TestComp_New(t *testing.T) {
 	st := storage.NewMockStorage(t)
-	comp := Comp{}
-	comp.New(st)
+	comp := New(st)
+	assert.NotNil(t, comp)
+}
+
+func TestComp_Close_Positive_NotCloser(t *testing.T) {
+	st := storage.NewMockStorage(t)
+	comp := New(st)
+	err := comp.Close()
+	assert.NoError(t, err)
 }
 
 func TestComp_GetPositive(t *testing.T) {
@@ -30,17 +41,16 @@ func TestComp_GetPositive(t *testing.T) {
 	}{
 		input: parser.Command{
 			Command: "GET",
-			Args:    []string{getKey},
+			Arg1:    getKey,
 		},
 	}
 
 	st := storage.NewMockStorage(t)
 	st.EXPECT().Get(getKey).Return(getValue, nil)
 
-	comp := Comp{}
-	comp.New(st)
+	comp := New(st)
 
-	result, err := comp.Exec(testCase.input)
+	result, err := comp.Exec(testCase.input, nilLogger)
 
 	assert.Equal(t, getValue, result)
 	assert.Nil(t, err)
@@ -53,7 +63,7 @@ func TestComp_GetNegative(t *testing.T) {
 	}{
 		input: parser.Command{
 			Command: "GET",
-			Args:    []string{getKeyNegative},
+			Arg1:    getKeyNegative,
 		},
 		err: "error getting value: key 2 not found",
 	}
@@ -61,10 +71,9 @@ func TestComp_GetNegative(t *testing.T) {
 	st := storage.NewMockStorage(t)
 	st.EXPECT().Get(getKeyNegative).Return("", errors.New(fmt.Sprintf("key %s not found", getKeyNegative)))
 
-	comp := Comp{}
-	comp.New(st)
+	comp := New(st)
 
-	result, err := comp.Exec(testCase.input)
+	result, err := comp.Exec(testCase.input, nilLogger)
 
 	assert.EqualError(t, err, testCase.err)
 	assert.Equal(t, nilResult, result)
@@ -76,17 +85,17 @@ func TestComp_SetPositive(t *testing.T) {
 	}{
 		input: parser.Command{
 			Command: "SET",
-			Args:    []string{setKey, setValue},
+			Arg1:    setKey,
+			Arg2:    setValue,
 		},
 	}
 
 	st := storage.NewMockStorage(t)
 	st.EXPECT().Set(setKey, setValue).Return(nil)
 
-	comp := Comp{}
-	comp.New(st)
+	comp := New(st)
 
-	result, err := comp.Exec(testCase.input)
+	result, err := comp.Exec(testCase.input, nilLogger)
 
 	assert.Equal(t, success, result)
 	assert.Nil(t, err)
@@ -98,17 +107,16 @@ func TestComp_DelPositive(t *testing.T) {
 	}{
 		input: parser.Command{
 			Command: "DEL",
-			Args:    []string{delKey},
+			Arg1:    delKey,
 		},
 	}
 
 	st := storage.NewMockStorage(t)
 	st.EXPECT().Del(delKey).Return(nil)
 
-	comp := Comp{}
-	comp.New(st)
+	comp := New(st)
 
-	result, err := comp.Exec(testCase.input)
+	result, err := comp.Exec(testCase.input, nilLogger)
 
 	assert.Equal(t, success, result)
 	assert.Nil(t, err)
@@ -121,7 +129,7 @@ func TestComp_DelNegative(t *testing.T) {
 	}{
 		input: parser.Command{
 			Command: "DEL",
-			Args:    []string{delKey},
+			Arg1:    delKey,
 		},
 		err: "error deleting value: key 1 not found",
 	}
@@ -129,10 +137,9 @@ func TestComp_DelNegative(t *testing.T) {
 	st := storage.NewMockStorage(t)
 	st.EXPECT().Del(delKey).Return(errors.New(fmt.Sprintf("key %s not found", delKey)))
 
-	comp := Comp{}
-	comp.New(st)
+	comp := New(st)
 
-	result, err := comp.Exec(testCase.input)
+	result, err := comp.Exec(testCase.input, nilLogger)
 
 	assert.EqualError(t, err, testCase.err)
 	assert.Equal(t, nilResult, result)
@@ -145,17 +152,16 @@ func TestComp_BogusCommand(t *testing.T) {
 	}{
 		input: parser.Command{
 			Command: "QWE",
-			Args:    []string{},
+			Arg1:    "",
 		},
 		err: "unknown command",
 	}
 
 	st := storage.NewMockStorage(t)
 
-	comp := Comp{}
-	comp.New(st)
+	comp := New(st)
 
-	result, err := comp.Exec(testCase.input)
+	result, err := comp.Exec(testCase.input, nilLogger)
 
 	assert.EqualError(t, err, testCase.err)
 	assert.Equal(t, nilResult, result)

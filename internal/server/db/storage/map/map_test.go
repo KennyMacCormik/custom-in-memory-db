@@ -3,7 +3,6 @@ package _map
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"sync"
 	"testing"
 )
 
@@ -13,13 +12,12 @@ const firstErrKey = "3"
 const firstSetVal = "5"
 
 func TestMapStorage_New(t *testing.T) {
-	var st MapStorage
-	st.New()
+	st := New()
+	assert.NotNil(t, st)
 }
 
 func TestMapStorage_GetPositive(t *testing.T) {
-	var st = MapStorage{
-		mtx: sync.Mutex{},
+	var st = Storage{
 		m: map[string]string{
 			firstKey: firstVal,
 		},
@@ -31,8 +29,7 @@ func TestMapStorage_GetPositive(t *testing.T) {
 }
 
 func TestMapStorage_GetNegative(t *testing.T) {
-	var st = MapStorage{
-		mtx: sync.Mutex{},
+	var st = Storage{
 		m: map[string]string{
 			firstKey: firstVal,
 		},
@@ -43,8 +40,7 @@ func TestMapStorage_GetNegative(t *testing.T) {
 }
 
 func TestMapStorage_SetPositive(t *testing.T) {
-	var st = MapStorage{
-		mtx: sync.Mutex{},
+	var st = Storage{
 		m: map[string]string{
 			firstKey: firstVal,
 		},
@@ -54,8 +50,7 @@ func TestMapStorage_SetPositive(t *testing.T) {
 }
 
 func TestMapStorage_DelPositive(t *testing.T) {
-	var st = MapStorage{
-		mtx: sync.Mutex{},
+	var st = Storage{
 		m: map[string]string{
 			firstKey: firstVal,
 		},
@@ -65,8 +60,7 @@ func TestMapStorage_DelPositive(t *testing.T) {
 }
 
 func TestMapStorage_DelNegative(t *testing.T) {
-	var st = MapStorage{
-		mtx: sync.Mutex{},
+	var st = Storage{
 		m: map[string]string{
 			firstKey: firstVal,
 		},

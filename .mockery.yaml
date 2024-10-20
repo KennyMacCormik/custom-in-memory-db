@@ -1,5 +1,5 @@
 with-expecter: true
-inpackage: true
+inpackage: false
 packages:
   custom-in-memory-db/internal/server/db/storage:
     interfaces:
@@ -11,10 +11,13 @@ packages:
       Compute:
         config:
           dir: "mocks/compute"
-  io:
+  custom-in-memory-db/internal/server/db/parser:
     interfaces:
-      Reader:
+      Parser:
         config:
-          inpackage: false
-          dir: "mocks/io"
-          outpkg: "ioMock"
+          dir: "mocks/parser"
+  custom-in-memory-db/internal/server/network:
+    interfaces:
+      Endpoint:
+        config:
+          dir: "mocks/network"
