@@ -7,8 +7,6 @@ import (
 )
 
 func Compute(st storage.Storage, lg *slog.Logger) compute.Compute {
-	comp := compute.Comp{}
-	comp.New(st)
 	lg.Info("compute init done")
-	return &comp
+	return compute.New(st)
 }

@@ -37,6 +37,28 @@ type Storage struct {
 	writer       io.WriteCloser
 }
 
+// New used to initialize Storage.
+// Any initializations after the first one won't take effect
+func New(conf cmd.Config, st storage.Storage, lg *slog.Logger) (*Storage, error) {
+	s := Storage{}
+	s.st = st
+	s.batchMax = int32(conf.Wal.BatchMax)
+	s.flipTimer = conf.Wal.BatchTimeout
+	s.writeHappens.Store(false)
+	s.closer = make(chan struct{})
+	go s.coinFlipper(s.closer)
+	sg, err := seg.New(conf)
+	if err != nil {
+		return nil, err
+	}
+	if conf.Wal.Recover {
+		err = Recover(sg, st.Set, st.Del, lg)
+	}
+	s.writer = sg
+
+	return &s, nil
+}
+
 // Set sets provided value for the provided key.
 // Set is thread-safe
 func (s *Storage) Set(key, value string) error {
@@ -60,28 +82,6 @@ func (s *Storage) Del(key string) error {
 // Get returns a value of the provided key.
 func (s *Storage) Get(key string) (string, error) {
 	return s.st.Get(key)
-}
-
-// New used to initialize Storage.
-// Any initializations after the first one won't take effect
-func New(conf cmd.Config, st storage.Storage, lg *slog.Logger) (*Storage, error) {
-	s := Storage{}
-	s.st = st
-	s.batchMax = int32(conf.Wal.BatchMax)
-	s.flipTimer = conf.Wal.BatchTimeout
-	s.writeHappens.Store(false)
-	s.closer = make(chan struct{})
-	go s.coinFlipper(s.closer)
-	sg, err := seg.New(conf)
-	if err != nil {
-		return nil, err
-	}
-	if conf.Wal.Recover {
-		err = Recover(sg, st.Set, st.Del, lg)
-	}
-	s.writer = sg
-
-	return &s, nil
 }
 
 // Close gracefully stops the Storage

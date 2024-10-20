@@ -11,22 +11,14 @@ import (
 )
 
 type Database struct {
-	initDone bool
-
 	comp        compute.Compute
 	pr          parser.Parser
 	netEndpoint network.Endpoint
 	lg          *slog.Logger
 }
 
-func (d *Database) New(comp compute.Compute, netEndpoint network.Endpoint, pr parser.Parser, lg *slog.Logger) {
-	if !d.initDone {
-		d.initDone = true
-		d.comp = comp
-		d.netEndpoint = netEndpoint
-		d.lg = lg
-		d.pr = pr
-	}
+func New(comp compute.Compute, netEndpoint network.Endpoint, pr parser.Parser, lg *slog.Logger) Database {
+	return Database{comp: comp, netEndpoint: netEndpoint, pr: pr, lg: lg}
 }
 
 func (d *Database) Close() error {

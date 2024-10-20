@@ -22,8 +22,8 @@ type Comp struct {
 }
 
 // New initializes Comp with storage interface it will be working with
-func (c *Comp) New(st storage.Storage) {
-	c.st = st
+func New(st storage.Storage) Compute {
+	return &(Comp{st: st})
 }
 
 func (c *Comp) Close() error {

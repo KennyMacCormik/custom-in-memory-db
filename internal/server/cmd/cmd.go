@@ -61,24 +61,25 @@ type Config struct {
 	Wal      Wal     `mapstructure:",squash"`
 }
 
-func (c *Config) New() error {
+func New() (Config, error) {
+	c := Config{}
 	if !c.initDone {
 		c.initDone = true
 
 		err := c.loadEnv()
 		if err != nil {
-			return fmt.Errorf("config unmarshalling error: %w", err)
+			return Config{}, fmt.Errorf("config unmarshalling error: %w", err)
 		}
 
 		err = c.validate()
 		if err != nil {
-			return fmt.Errorf("config validation error: %w", errors.New(c.handleValidatorError(err)))
+			return Config{}, fmt.Errorf("config validation error: %w", errors.New(c.handleValidatorError(err)))
 		}
 
 		c.Wal.SegSize *= KB
 	}
 
-	return nil
+	return c, nil
 }
 
 func (c *Config) loadEnv() error {

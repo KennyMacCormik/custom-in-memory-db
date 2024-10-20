@@ -29,8 +29,7 @@ func Database(conf cmd.Config, lg *slog.Logger) *db.Database {
 		os.Exit(errExit)
 	}
 
-	database := db.Database{}
-	database.New(comp, net, pr, lg)
+	database := db.New(comp, net, pr, lg)
 	lg.Info("db init done")
 
 	return &database

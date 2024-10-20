@@ -11,8 +11,7 @@ const errExit = 1
 
 func main() {
 	// Init config
-	conf := cmd.Config{}
-	err := conf.New()
+	conf, err := cmd.New()
 	if err != nil {
 		lg := myinit.Logger(conf)
 		lg.Error("config init error", "error", errors.Unwrap(err).Error())
