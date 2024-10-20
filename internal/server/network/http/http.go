@@ -34,12 +34,19 @@ type Server struct {
 }
 
 func (s *Server) New(conf cmd.Config, lg *slog.Logger) {
-
 	s.addr = strings.Join([]string{conf.Network.Host, strconv.Itoa(conf.Network.Port)}, ":")
 	s.timeout = conf.Network.Timeout
 
 	s.lg = lg
 	s.initGin(conf)
+
+	s.server = &http.Server{
+		Addr:         s.addr,
+		Handler:      s.router,
+		ReadTimeout:  s.timeout,
+		WriteTimeout: s.timeout,
+		IdleTimeout:  s.timeout,
+	}
 }
 
 func (s *Server) Close() error {
@@ -50,13 +57,6 @@ func (s *Server) Close() error {
 
 func (s *Server) Listen(f network.Handler) {
 	s.initHandlers(f)
-	s.server = &http.Server{
-		Addr:         s.addr,
-		Handler:      s.router,
-		ReadTimeout:  s.timeout,
-		WriteTimeout: s.timeout,
-		IdleTimeout:  s.timeout,
-	}
 	_ = s.server.ListenAndServe()
 }
 

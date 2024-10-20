@@ -5,6 +5,8 @@ import (
 	myinit "custom-in-memory-db/internal/server/init"
 	"errors"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 const errExit = 1
@@ -23,5 +25,9 @@ func main() {
 
 	db := myinit.Database(conf, lg)
 	defer db.Close()
-	db.ListenClient()
+	go db.ListenClient()
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	lg.Info("Shutdown Server ...")
 }
