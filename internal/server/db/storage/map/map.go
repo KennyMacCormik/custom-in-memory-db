@@ -6,19 +6,16 @@ import (
 )
 
 type Storage struct {
-	initDone bool
-
 	mtx sync.Mutex
 	m   map[string]string
 }
 
 // New used to initialize Storage.
 // Any initializations after the first one won't take effect
-func (s *Storage) New() {
-	if !s.initDone {
-		s.m = make(map[string]string)
-		s.initDone = true
-	}
+func New() *Storage {
+	st := Storage{}
+	st.m = make(map[string]string)
+	return &st
 }
 
 func (s *Storage) Get(key string) (string, error) {

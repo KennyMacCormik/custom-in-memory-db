@@ -48,7 +48,7 @@ type Wal struct {
 	// segment size on disk KB, min 1. defaults to 1
 	SegSize int `mapstructure:"wal_seg_size" validate:"numeric,gt=0"`
 	// segment folder. defaults to os.Getwd
-	SegPath string `mapstructure:"wal_seg_path" validate:"dir,dirpath"`
+	SegPath string `mapstructure:"wal_seg_path" validate:"dir"`
 	// recover from wal on db start. defaults to true
 	Recover bool `mapstructure:"wal_replay" validate:"boolean"`
 }

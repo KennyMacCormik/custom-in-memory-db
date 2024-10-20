@@ -10,23 +10,17 @@ import (
 )
 
 func initMapStorage(lg *slog.Logger) (storage.Storage, error) {
-	st := _map.Storage{}
-	st.New()
 	lg.Info("map storage init done")
-	return &st, nil
+	return _map.New(), nil
 }
 
-func initWalStorage(conf cmd.Config, lg *slog.Logger) (storage.Storage, error) {
-	st := wal.Storage{}
-	pr := Parser(lg)
-	err := st.New(conf)
-	if err == nil {
-		if conf.Wal.Recover {
-			err = st.Recover(conf, pr, lg)
-		}
-		lg.Info("wal storage init done")
+func initWalStorage(conf cmd.Config, st storage.Storage, lg *slog.Logger) (storage.Storage, error) {
+	wl, err := wal.New(conf, st, lg)
+	if err != nil {
+		return nil, err
 	}
-	return &st, err
+	lg.Info("wal storage init done")
+	return wl, nil
 }
 
 func Storage(conf cmd.Config, lg *slog.Logger) (storage.Storage, error) {
@@ -35,7 +29,8 @@ func Storage(conf cmd.Config, lg *slog.Logger) (storage.Storage, error) {
 	case "map":
 		return initMapStorage(lg)
 	case "wal":
-		return initWalStorage(conf, lg)
+		st, _ := initMapStorage(lg)
+		return initWalStorage(conf, st, lg)
 	default:
 		return nil, fmt.Errorf("%s failed: unknown engine type %s", suf, conf.Engine.Type)
 	}

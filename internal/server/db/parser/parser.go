@@ -39,15 +39,14 @@ type Parse struct {
 
 // New used to initialize Storage.
 // Any initializations after the first one won't take effect
-func (p *Parse) New() {
-	if !p.initDone {
-		p.initDone = true
-		p.eol = eol
-		p.trim = trim
-		p.sep = sep
-		p.toReplaceBySep = ToReplaceBySep
-		p.tag = tag
-	}
+func New() Parser {
+	pr := Parse{}
+	pr.eol = eol
+	pr.trim = trim
+	pr.sep = sep
+	pr.toReplaceBySep = ToReplaceBySep
+	pr.tag = tag
+	return &pr
 }
 
 // Read reads r until Parse.eol and converts it to Command

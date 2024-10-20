@@ -12,17 +12,8 @@ const firstErrKey = "3"
 const firstSetVal = "5"
 
 func TestMapStorage_New(t *testing.T) {
-	var st Storage
-	st.New()
-}
-
-func TestMapStorage_New_NoRenew(t *testing.T) {
-	var st Storage
-	st.New()
-	_ = st.Set(firstKey, firstVal)
-	st.New()
-	val, _ := st.Get(firstKey)
-	assert.Equal(t, firstVal, val)
+	st := New()
+	assert.NotNil(t, st)
 }
 
 func TestMapStorage_GetPositive(t *testing.T) {

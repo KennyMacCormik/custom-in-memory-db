@@ -6,8 +6,6 @@ import (
 )
 
 func Parser(lg *slog.Logger) parser.Parser {
-	pr := parser.Parse{}
-	pr.New()
 	lg.Info("parser init done")
-	return &pr
+	return parser.New()
 }

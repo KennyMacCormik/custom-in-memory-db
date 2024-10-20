@@ -2,14 +2,14 @@ package wal
 
 import (
 	"custom-in-memory-db/internal/server/cmd"
-	"custom-in-memory-db/internal/server/db/parser"
+	"custom-in-memory-db/internal/server/db/seg"
+	"custom-in-memory-db/internal/server/db/storage"
 	"errors"
-	"fmt"
 	atomicUber "go.uber.org/atomic"
+	"io"
 	"log/slog"
 	"runtime"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -22,10 +22,7 @@ var writeOk = errors.New("ok")
 // Storage is the same as map.Storage and adds wal implementation.
 // Expect files to be written to a WAL_SEG_PATH
 type Storage struct {
-	initDone bool
-
-	mapMtx sync.Mutex
-	m      map[string]string
+	st storage.Storage
 
 	batch     atomicUber.String
 	batchMax  int32
@@ -35,9 +32,9 @@ type Storage struct {
 	flipTimer time.Duration
 	coin      atomic.Bool
 	closer    chan struct{}
-	// writeHappens replaces mutex
+
 	writeHappens atomic.Bool
-	writer       writer
+	writer       io.WriteCloser
 }
 
 // Set sets provided value for the provided key.
@@ -47,7 +44,7 @@ func (s *Storage) Set(key, value string) error {
 	if err != nil && err != writeOk {
 		return err
 	}
-	return s.set(key, value)
+	return s.st.Set(key, value)
 }
 
 // Del removes provided key and it's value.
@@ -57,41 +54,34 @@ func (s *Storage) Del(key string) error {
 	if err != nil && err != writeOk {
 		return err
 	}
-	return s.del(key)
+	return s.st.Del(key)
 }
 
 // Get returns a value of the provided key.
-// Get is thread-safe
 func (s *Storage) Get(key string) (string, error) {
-	s.mapMtx.Lock()
-	val, ok := s.m[key]
-	s.mapMtx.Unlock()
-	if !ok {
-		return "", fmt.Errorf("key %s not found", key)
-	}
-
-	return val, nil
+	return s.st.Get(key)
 }
 
 // New used to initialize Storage.
 // Any initializations after the first one won't take effect
-func (s *Storage) New(conf cmd.Config) error {
-	const suf = "WalStorage.New()"
-	if !s.initDone {
-		s.m = make(map[string]string)
-		s.batchMax = int32(conf.Wal.BatchMax)
-		s.flipTimer = conf.Wal.BatchTimeout
-		s.writeHappens.Store(false)
-		s.closer = make(chan struct{})
-		go s.coinFlipper(s.closer)
-		s.initDone = true
-		err := s.writer.New(conf)
-		if err != nil {
-			return fmt.Errorf("%s failed: %w", suf, err)
-		}
+func New(conf cmd.Config, st storage.Storage, lg *slog.Logger) (*Storage, error) {
+	s := Storage{}
+	s.st = st
+	s.batchMax = int32(conf.Wal.BatchMax)
+	s.flipTimer = conf.Wal.BatchTimeout
+	s.writeHappens.Store(false)
+	s.closer = make(chan struct{})
+	go s.coinFlipper(s.closer)
+	sg, err := seg.New(conf)
+	if err != nil {
+		return nil, err
 	}
+	if conf.Wal.Recover {
+		err = Recover(sg, st.Set, st.Del, lg)
+	}
+	s.writer = sg
 
-	return nil
+	return &s, nil
 }
 
 // Close gracefully stops the Storage
@@ -106,21 +96,14 @@ func (s *Storage) Close() error {
 	return s.writer.Close()
 }
 
-func (s *Storage) Recover(conf cmd.Config, pr parser.Parser, lg *slog.Logger) error {
-	return s.writer.Recover(conf, s.set, s.del, pr, lg)
-}
-
 // addToBuff loads command to batch and increments batchSize.
 func (s *Storage) addToBuff(args ...string) {
-	cmnd := strings.Join(args[:], " ")
-	cmnd = strings.Join([]string{cmnd, "\n"}, "")
+	cmnd := strings.Join(append(args[:], "\n"), " ")
 
 	for {
 		oldVal := s.batch.Load()
-		newVal := strings.Join([]string{oldVal, cmnd}, "")
-		if !s.writeHappens.Load() && s.batchSize.Load() < s.batchMax && s.batch.CompareAndSwap(oldVal, newVal) {
+		if !s.writeHappens.Load() && s.batchSize.Load() < s.batchMax && s.batch.CompareAndSwap(oldVal, strings.Join([]string{oldVal, cmnd}, "")) {
 			// This doesn't ensure strict batch size. Overflow might happen
-			// Is it possible to make two CAS at once?
 			s.batchSize.Add(1)
 			return
 		}
@@ -179,31 +162,19 @@ func (s *Storage) lockOrWrite(args ...string) error {
 	return s.waitForWrite()
 }
 
-func (s *Storage) set(key, value string) error {
-	s.mapMtx.Lock()
-	defer s.mapMtx.Unlock()
-	s.m[key] = value
-
-	return nil
-}
-
-func (s *Storage) del(key string) error {
-	s.mapMtx.Lock()
-	defer s.mapMtx.Unlock()
-	_, ok := s.m[key]
-	if !ok {
-		return fmt.Errorf("key %s not found", key)
-	}
-	delete(s.m, key)
-
-	return nil
-}
-
 // coinFlipper flips a coin every flipTimer interval.
 func (s *Storage) coinFlipper(closer chan struct{}) {
 	t := time.NewTicker(s.flipTimer)
 	defer t.Stop()
 	for {
+		select {
+		case <-closer:
+			t.Stop()
+			closer <- struct{}{}
+			return
+		default:
+		}
+
 		select {
 		case <-t.C:
 			for {
