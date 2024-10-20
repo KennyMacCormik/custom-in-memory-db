@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-type testCase = struct {
+type testCase struct {
 	env map[string]string
 }
 
@@ -55,8 +55,7 @@ func TestConfig_Positive_AllPresent(t *testing.T) {
 	setEnv(test.env)
 	defer unsetEnv(test.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
 	assert.NoError(t, err)
 
 	assert.Equal(t, test.env["RAMDB_STORAGE"], conf.Engine.Type)
@@ -131,8 +130,7 @@ func TestConfig_Positive_AllOptionalMissing(t *testing.T) {
 	setEnv(test.env)
 	defer unsetEnv(test.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
 	assert.NoError(t, err)
 
 	assert.Equal(t, "wal", conf.Engine.Type)
@@ -184,8 +182,7 @@ func TestConfig_Positive_RAMDB_STORAGE_AllValid(t *testing.T) {
 
 	for _, test := range tests {
 		setEnv(test.env)
-		conf := Config{}
-		err := conf.New()
+		conf, err := New()
 		assert.NoError(t, err)
 		assert.Equal(t, test.env["RAMDB_STORAGE"], conf.Engine.Type)
 		unsetEnv(test.env)
@@ -207,9 +204,9 @@ func TestConfig_Negative_BogusArg_RAMDB_STORAGE(t *testing.T) {
 	setEnv(test.env)
 	defer unsetEnv(test.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
 	assert.EqualError(t, err, test.err)
+	assert.Equal(t, Config{}, conf)
 }
 
 // LOG
@@ -231,8 +228,7 @@ func TestConfig_Positive_RAMDB_LOG_FORMAT_AllValid(t *testing.T) {
 
 	for _, test := range tests {
 		setEnv(test.env)
-		conf := Config{}
-		err := conf.New()
+		conf, err := New()
 		assert.NoError(t, err)
 		assert.Equal(t, test.env["RAMDB_LOG_FORMAT"], conf.Logging.Format)
 		unsetEnv(test.env)
@@ -269,8 +265,7 @@ func TestConfig_Positive_RAMDB_LOG_LEVEL_AllValid(t *testing.T) {
 
 	for _, test := range tests {
 		setEnv(test.env)
-		conf := Config{}
-		err := conf.New()
+		conf, err := New()
 		assert.NoError(t, err)
 		assert.Equal(t, test.env["RAMDB_LOG_LEVEL"], conf.Logging.Level)
 		unsetEnv(test.env)
@@ -291,9 +286,9 @@ func TestConfig_Negative_BogusArg_RAMDB_LOG_FORMAT(t *testing.T) {
 	setEnv(test.env)
 	defer unsetEnv(test.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
 	assert.EqualError(t, err, expectedError)
+	assert.Equal(t, Config{}, conf)
 }
 
 func TestConfig_Negative_BogusArg_RAMDB_LOG_LEVEL(t *testing.T) {
@@ -310,8 +305,8 @@ func TestConfig_Negative_BogusArg_RAMDB_LOG_LEVEL(t *testing.T) {
 	setEnv(test.env)
 	defer unsetEnv(test.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
 	assert.EqualError(t, err, expectedError)
 }
 
@@ -334,8 +329,7 @@ func TestConfig_Positive_RAMDB_NET_PROTO_AllValid(t *testing.T) {
 
 	for _, test := range tests {
 		setEnv(test.env)
-		conf := Config{}
-		err := conf.New()
+		conf, err := New()
 		assert.NoError(t, err)
 		assert.Equal(t, test.env["RAMDB_NET_PROTO"], conf.Network.Endpoint)
 		unsetEnv(test.env)
@@ -356,34 +350,18 @@ func TestConfig_Negative_BogusArg_RAMDB_NET_PROTO(t *testing.T) {
 	setEnv(test.env)
 	defer unsetEnv(test.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
 	assert.EqualError(t, err, expectedError)
 }
 
-func TestConfig_Negative_BogusArg_NET_ADDR(t *testing.T) {
+func TestConfig_Negative_BogusArg_RAMDB_NET_ADDRESS(t *testing.T) {
 	testCase := struct {
 		env map[string]string
 		err string
 	}{
 		env: map[string]string{
-			// type Engine struct
-			"APP_STORAGE": "map",
-			"APP_INPUT":   "tcp4",
-			// type Network struct
-			"NET_ADDR":         "0.0.0.1111",
-			"NET_PORT":         "8080",
-			"NET_MAX_CONN":     "100",
-			"NET_MESSAGE_SIZE": "4",
-			"NET_TIMEOUT":      "60s",
-			// type Logging struct
-			"LOG_FORMAT": "text",
-			"LOG_LEVEL":  "debug",
-			// type Wal struct
-			"WAL_BATCH_SIZE":    "100",
-			"WAL_BATCH_TIMEOUT": "10s",
-			"WAL_SEG_SIZE":      "4",
-			"WAL_SEG_PATH":      "./",
+			"RAMDB_NET_ADDRESS": "0.0.0.1111",
 		},
 		err: "config validation error: field 'Host' value '0.0.0.1111' invalid, 'ip4_addr' expected;",
 	}
@@ -391,34 +369,18 @@ func TestConfig_Negative_BogusArg_NET_ADDR(t *testing.T) {
 	setEnv(testCase.env)
 	defer unsetEnv(testCase.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
 	assert.EqualError(t, err, testCase.err)
 }
 
-func TestConfig_Negative_BogusArg_NET_PORT_More65536(t *testing.T) {
+func TestConfig_Negative_BogusArg_RAMDB_NET_PORT_More65536(t *testing.T) {
 	testCase := struct {
 		env map[string]string
 		err string
 	}{
 		env: map[string]string{
-			// type Engine struct
-			"APP_STORAGE": "map",
-			"APP_INPUT":   "tcp4",
-			// type Network struct
-			"NET_ADDR":         "0.0.0.0",
-			"NET_PORT":         "70000",
-			"NET_MAX_CONN":     "100",
-			"NET_MESSAGE_SIZE": "4",
-			"NET_TIMEOUT":      "60s",
-			// type Logging struct
-			"LOG_FORMAT": "text",
-			"LOG_LEVEL":  "debug",
-			// type Wal struct
-			"WAL_BATCH_SIZE":    "100",
-			"WAL_BATCH_TIMEOUT": "10s",
-			"WAL_SEG_SIZE":      "4",
-			"WAL_SEG_PATH":      "./",
+			"RAMDB_NET_PORT": "70000",
 		},
 		err: "config validation error: field 'Port' value '%!s(int=70000)' invalid, 'numeric,gt=0,lt=65536' expected;",
 	}
@@ -426,34 +388,18 @@ func TestConfig_Negative_BogusArg_NET_PORT_More65536(t *testing.T) {
 	setEnv(testCase.env)
 	defer unsetEnv(testCase.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
 	assert.EqualError(t, err, testCase.err)
 }
 
-func TestConfig_Negative_BogusArg_NET_PORT_Less_0(t *testing.T) {
+func TestConfig_Negative_BogusArg_RAMDB_NET_PORT_Less_0(t *testing.T) {
 	testCase := struct {
 		env map[string]string
 		err string
 	}{
 		env: map[string]string{
-			// type Engine struct
-			"APP_STORAGE": "map",
-			"APP_INPUT":   "tcp4",
-			// type Network struct
-			"NET_ADDR":         "0.0.0.0",
-			"NET_PORT":         "-10",
-			"NET_MAX_CONN":     "100",
-			"NET_MESSAGE_SIZE": "4",
-			"NET_TIMEOUT":      "60s",
-			// type Logging struct
-			"LOG_FORMAT": "text",
-			"LOG_LEVEL":  "debug",
-			// type Wal struct
-			"WAL_BATCH_SIZE":    "100",
-			"WAL_BATCH_TIMEOUT": "10s",
-			"WAL_SEG_SIZE":      "4",
-			"WAL_SEG_PATH":      "./",
+			"RAMDB_NET_PORT": "-10",
 		},
 		err: "config validation error: field 'Port' value '%!s(int=-10)' invalid, 'numeric,gt=0,lt=65536' expected;",
 	}
@@ -461,34 +407,18 @@ func TestConfig_Negative_BogusArg_NET_PORT_Less_0(t *testing.T) {
 	setEnv(testCase.env)
 	defer unsetEnv(testCase.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
 	assert.EqualError(t, err, testCase.err)
 }
 
-func TestConfig_Negative_BogusArg_NET_MAX_CONN(t *testing.T) {
+func TestConfig_Negative_BogusArg_RAMDB_NET_MAX_CONN(t *testing.T) {
 	testCase := struct {
 		env map[string]string
 		err string
 	}{
 		env: map[string]string{
-			// type Engine struct
-			"APP_STORAGE": "map",
-			"APP_INPUT":   "tcp4",
-			// type Network struct
-			"NET_ADDR":         "0.0.0.0",
-			"NET_PORT":         "8080",
-			"NET_MAX_CONN":     "-10",
-			"NET_MESSAGE_SIZE": "4",
-			"NET_TIMEOUT":      "60s",
-			// type Logging struct
-			"LOG_FORMAT": "text",
-			"LOG_LEVEL":  "debug",
-			// type Wal struct
-			"WAL_BATCH_SIZE":    "100",
-			"WAL_BATCH_TIMEOUT": "10s",
-			"WAL_SEG_SIZE":      "4",
-			"WAL_SEG_PATH":      "./",
+			"RAMDB_NET_MAX_CONN": "-10",
 		},
 		err: "config validation error: field 'MaxConn' value '%!s(int=-10)' invalid, 'numeric,gte=0' expected;",
 	}
@@ -496,34 +426,18 @@ func TestConfig_Negative_BogusArg_NET_MAX_CONN(t *testing.T) {
 	setEnv(testCase.env)
 	defer unsetEnv(testCase.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
 	assert.EqualError(t, err, testCase.err)
 }
 
-func TestConfig_Negative_BogusArg_NET_TIMEOUT(t *testing.T) {
+func TestConfig_Negative_BogusArg_RAMDB_NET_TIMEOUT(t *testing.T) {
 	testCase := struct {
 		env map[string]string
 		err string
 	}{
 		env: map[string]string{
-			// type Engine struct
-			"APP_STORAGE": "map",
-			"APP_INPUT":   "tcp4",
-			// type Network struct
-			"NET_ADDR":         "0.0.0.0",
-			"NET_PORT":         "8080",
-			"NET_MAX_CONN":     "100",
-			"NET_MESSAGE_SIZE": "4",
-			"NET_TIMEOUT":      "0s",
-			// type Logging struct
-			"LOG_FORMAT": "text",
-			"LOG_LEVEL":  "debug",
-			// type Wal struct
-			"WAL_BATCH_SIZE":    "100",
-			"WAL_BATCH_TIMEOUT": "10s",
-			"WAL_SEG_SIZE":      "4",
-			"WAL_SEG_PATH":      "./",
+			"RAMDB_NET_TIMEOUT": "0s",
 		},
 		err: "config validation error: field 'Timeout' value '0s' invalid, 'min=1ms' expected;",
 	}
@@ -531,108 +445,20 @@ func TestConfig_Negative_BogusArg_NET_TIMEOUT(t *testing.T) {
 	setEnv(testCase.env)
 	defer unsetEnv(testCase.env)
 
-	conf := Config{}
-	err := conf.New()
-	assert.EqualError(t, err, testCase.err)
-}
-
-// Logging
-
-func TestConfig_Negative_BogusArg_LOG_FORMAT(t *testing.T) {
-	testCase := struct {
-		env map[string]string
-		err string
-	}{
-		env: map[string]string{
-			// type Engine struct
-			"APP_STORAGE": "map",
-			"APP_INPUT":   "tcp4",
-			// type Network struct
-			"NET_ADDR":         "0.0.0.0",
-			"NET_PORT":         "8080",
-			"NET_MAX_CONN":     "100",
-			"NET_MESSAGE_SIZE": "4",
-			"NET_TIMEOUT":      "60s",
-			// type Logging struct
-			"LOG_FORMAT": "textt",
-			"LOG_LEVEL":  "debug",
-			// type Wal struct
-			"WAL_BATCH_SIZE":    "100",
-			"WAL_BATCH_TIMEOUT": "10s",
-			"WAL_SEG_SIZE":      "4",
-			"WAL_SEG_PATH":      "./",
-		},
-		err: "config validation error: field 'Format' value 'textt' invalid, 'oneof=text json' expected;",
-	}
-
-	setEnv(testCase.env)
-	defer unsetEnv(testCase.env)
-
-	conf := Config{}
-	err := conf.New()
-	assert.EqualError(t, err, testCase.err)
-}
-
-func TestConfig_Negative_BogusArg_LOG_LEVEL(t *testing.T) {
-	testCase := struct {
-		env map[string]string
-		err string
-	}{
-		env: map[string]string{
-			// type Engine struct
-			"APP_STORAGE": "map",
-			"APP_INPUT":   "tcp4",
-			// type Network struct
-			"NET_ADDR":         "0.0.0.0",
-			"NET_PORT":         "8080",
-			"NET_MAX_CONN":     "100",
-			"NET_MESSAGE_SIZE": "4",
-			"NET_TIMEOUT":      "10s",
-			// type Logging struct
-			"LOG_FORMAT": "text",
-			"LOG_LEVEL":  "debugg",
-			// type Wal struct
-			"WAL_BATCH_SIZE":    "100",
-			"WAL_BATCH_TIMEOUT": "10s",
-			"WAL_SEG_SIZE":      "4",
-			"WAL_SEG_PATH":      "./",
-		},
-		err: "config validation error: field 'Level' value 'debugg' invalid, 'oneof=debug info warn error' expected;",
-	}
-
-	setEnv(testCase.env)
-	defer unsetEnv(testCase.env)
-
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
 	assert.EqualError(t, err, testCase.err)
 }
 
 // Wal
 
-func TestConfig_Negative_BogusArg_WAL_BATCH_SIZE(t *testing.T) {
+func TestConfig_Negative_BogusArg_RAMDB_WAL_BATCH_MAX(t *testing.T) {
 	testCase := struct {
 		env map[string]string
 		err string
 	}{
 		env: map[string]string{
-			// type Engine struct
-			"APP_STORAGE": "map",
-			"APP_INPUT":   "tcp4",
-			// type Network struct
-			"NET_ADDR":         "0.0.0.0",
-			"NET_PORT":         "8080",
-			"NET_MAX_CONN":     "100",
-			"NET_MESSAGE_SIZE": "4",
-			"NET_TIMEOUT":      "60s",
-			// type Logging struct
-			"LOG_FORMAT": "text",
-			"LOG_LEVEL":  "debug",
-			// type Wal struct
-			"WAL_BATCH_SIZE":    "-100",
-			"WAL_BATCH_TIMEOUT": "10s",
-			"WAL_SEG_SIZE":      "4",
-			"WAL_SEG_PATH":      "./",
+			"RAMDB_WAL_BATCH_MAX": "-100",
 		},
 		err: "config validation error: field 'BatchMax' value '%!s(int=-100)' invalid, 'numeric,gt=0' expected;",
 	}
@@ -640,34 +466,18 @@ func TestConfig_Negative_BogusArg_WAL_BATCH_SIZE(t *testing.T) {
 	setEnv(testCase.env)
 	defer unsetEnv(testCase.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
 	assert.EqualError(t, err, testCase.err)
 }
 
-func TestConfig_Negative_BogusArg_WAL_BATCH_TIMEOUT(t *testing.T) {
+func TestConfig_Negative_BogusArg_RAMDB_WAL_BATCH_TIMEOUT(t *testing.T) {
 	testCase := struct {
 		env map[string]string
 		err string
 	}{
 		env: map[string]string{
-			// type Engine struct
-			"APP_STORAGE": "map",
-			"APP_INPUT":   "tcp4",
-			// type Network struct
-			"NET_ADDR":         "0.0.0.0",
-			"NET_PORT":         "8080",
-			"NET_MAX_CONN":     "100",
-			"NET_MESSAGE_SIZE": "4",
-			"NET_TIMEOUT":      "10s",
-			// type Logging struct
-			"LOG_FORMAT": "text",
-			"LOG_LEVEL":  "debug",
-			// type Wal struct
-			"WAL_BATCH_SIZE":    "100",
-			"WAL_BATCH_TIMEOUT": "10ns",
-			"WAL_SEG_SIZE":      "4",
-			"WAL_SEG_PATH":      "./",
+			"RAMDB_WAL_BATCH_TIMEOUT": "10ns",
 		},
 		err: "config validation error: field 'BatchTimeout' value '10ns' invalid, 'min=1ms' expected;",
 	}
@@ -675,69 +485,37 @@ func TestConfig_Negative_BogusArg_WAL_BATCH_TIMEOUT(t *testing.T) {
 	setEnv(testCase.env)
 	defer unsetEnv(testCase.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
 	assert.EqualError(t, err, testCase.err)
 }
 
-func TestConfig_Negative_BogusArg_WAL_BATCH_TIMEOUT_BogusDuration(t *testing.T) {
+func TestConfig_Negative_BogusArg_RAMDB_WAL_BATCH_TIMEOUT_BogusDuration(t *testing.T) {
 	testCase := struct {
 		env map[string]string
 		err string
 	}{
 		env: map[string]string{
-			// type Engine struct
-			"APP_STORAGE": "map",
-			"APP_INPUT":   "tcp4",
-			// type Network struct
-			"NET_ADDR":         "0.0.0.0",
-			"NET_PORT":         "8080",
-			"NET_MAX_CONN":     "100",
-			"NET_MESSAGE_SIZE": "4",
-			"NET_TIMEOUT":      "10s",
-			// type Logging struct
-			"LOG_FORMAT": "text",
-			"LOG_LEVEL":  "debug",
-			// type Wal struct
-			"WAL_BATCH_SIZE":    "100",
-			"WAL_BATCH_TIMEOUT": "10",
-			"WAL_SEG_SIZE":      "4",
-			"WAL_SEG_PATH":      "./",
+			"RAMDB_WAL_BATCH_TIMEOUT": "4",
 		},
-		err: "could not read config from ENV: parsing field BatchTimeout env WAL_BATCH_TIMEOUT: time: missing unit in duration \"10\"",
+		err: "config unmarshalling error: 1 error(s) decoding:\n\n* error decoding 'wal_batch_timeout': time: missing unit in duration \"4\"",
 	}
 
 	setEnv(testCase.env)
 	defer unsetEnv(testCase.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
 	assert.EqualError(t, err, testCase.err)
 }
 
-func TestConfig_Negative_BogusArg_WAL_SEG_SIZE(t *testing.T) {
+func TestConfig_Negative_BogusArg_RAMDB_WAL_SEG_SIZE(t *testing.T) {
 	testCase := struct {
 		env map[string]string
 		err string
 	}{
 		env: map[string]string{
-			// type Engine struct
-			"APP_STORAGE": "map",
-			"APP_INPUT":   "tcp4",
-			// type Network struct
-			"NET_ADDR":         "0.0.0.0",
-			"NET_PORT":         "8080",
-			"NET_MAX_CONN":     "100",
-			"NET_MESSAGE_SIZE": "4",
-			"NET_TIMEOUT":      "60s",
-			// type Logging struct
-			"LOG_FORMAT": "text",
-			"LOG_LEVEL":  "debug",
-			// type Wal struct
-			"WAL_BATCH_SIZE":    "100",
-			"WAL_BATCH_TIMEOUT": "10s",
-			"WAL_SEG_SIZE":      "-4",
-			"WAL_SEG_PATH":      "./",
+			"RAMDB_WAL_SEG_SIZE": "-4",
 		},
 		err: "config validation error: field 'SegSize' value '%!s(int=-4)' invalid, 'numeric,gt=0' expected;",
 	}
@@ -745,42 +523,45 @@ func TestConfig_Negative_BogusArg_WAL_SEG_SIZE(t *testing.T) {
 	setEnv(testCase.env)
 	defer unsetEnv(testCase.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
 	assert.EqualError(t, err, testCase.err)
 }
 
-func TestConfig_Negative_BogusArg_WAL_SEG_PATH(t *testing.T) {
+func TestConfig_Negative_BogusArg_RAMDB_WAL_SEG_PATH(t *testing.T) {
 	testCase := struct {
 		env map[string]string
 		err string
 	}{
 		env: map[string]string{
-			// type Engine struct
-			"APP_STORAGE": "map",
-			"APP_INPUT":   "tcp4",
-			// type Network struct
-			"NET_ADDR":         "0.0.0.0",
-			"NET_PORT":         "8080",
-			"NET_MAX_CONN":     "100",
-			"NET_MESSAGE_SIZE": "4",
-			"NET_TIMEOUT":      "10s",
-			// type Logging struct
-			"LOG_FORMAT": "text",
-			"LOG_LEVEL":  "debug",
-			// type Wal struct
-			"WAL_BATCH_SIZE":    "100",
-			"WAL_BATCH_TIMEOUT": "10s",
-			"WAL_SEG_SIZE":      "4",
-			"WAL_SEG_PATH":      "./q",
+			"RAMDB_WAL_SEG_PATH": "./q",
 		},
-		err: "config validation error: field 'SegPath' value './q' invalid, 'dir,dirpath' expected;",
+		err: "config validation error: field 'SegPath' value './q' invalid, 'dir' expected;",
 	}
 
 	setEnv(testCase.env)
 	defer unsetEnv(testCase.env)
 
-	conf := Config{}
-	err := conf.New()
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
+	assert.EqualError(t, err, testCase.err)
+}
+
+func TestConfig_Negative_BogusArg_RAMDB_WAL_REPLAY(t *testing.T) {
+	testCase := struct {
+		env map[string]string
+		err string
+	}{
+		env: map[string]string{
+			"RAMDB_WAL_REPLAY": "truee",
+		},
+		err: "config unmarshalling error: 1 error(s) decoding:\n\n* cannot parse 'wal_replay' as bool: strconv.ParseBool: parsing \"truee\": invalid syntax",
+	}
+
+	setEnv(testCase.env)
+	defer unsetEnv(testCase.env)
+
+	conf, err := New()
+	assert.Equal(t, Config{}, conf)
 	assert.EqualError(t, err, testCase.err)
 }

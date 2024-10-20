@@ -22,8 +22,8 @@ func TestDatabase_New(t *testing.T) {
 	netEndpoint := network.NewMockEndpoint(t)
 	pr := mockParser.NewMockParser(t)
 
-	db := Database{}
-	db.New(comp, netEndpoint, pr, nilLogger)
+	db := New(comp, netEndpoint, pr, nilLogger)
+	assert.NotNil(t, db)
 }
 
 func TestDatabase_HandleRequest_Positive(t *testing.T) {
@@ -49,8 +49,7 @@ func TestDatabase_HandleRequest_Positive(t *testing.T) {
 	pr := mockParser.NewMockParser(t)
 	pr.EXPECT().Read(r, nilLogger).Return(testCase.cmd, nil)
 
-	db := Database{}
-	db.New(comp, netEndpoint, pr, nilLogger)
+	db := New(comp, netEndpoint, pr, nilLogger)
 
 	result, err := db.HandleRequest(r, nilLogger)
 	assert.NoError(t, err)
@@ -78,8 +77,7 @@ func TestDatabase_HandleRequest_Negative_Parser(t *testing.T) {
 	pr := mockParser.NewMockParser(t)
 	pr.EXPECT().Read(r, nilLogger).Return(parser.Command{}, errors.New("test error"))
 
-	db := Database{}
-	db.New(comp, netEndpoint, pr, nilLogger)
+	db := New(comp, netEndpoint, pr, nilLogger)
 
 	result, err := db.HandleRequest(r, nilLogger)
 	assert.Empty(t, result)
@@ -109,8 +107,7 @@ func TestDatabase_HandleRequest_Negative_Compute(t *testing.T) {
 	pr := mockParser.NewMockParser(t)
 	pr.EXPECT().Read(r, nilLogger).Return(testCase.cmd, nil)
 
-	db := Database{}
-	db.New(comp, netEndpoint, pr, nilLogger)
+	db := New(comp, netEndpoint, pr, nilLogger)
 
 	result, err := db.HandleRequest(r, nilLogger)
 	assert.Empty(t, result)
@@ -125,8 +122,7 @@ func TestDatabase_ListenClient(t *testing.T) {
 
 	pr := mockParser.NewMockParser(t)
 
-	db := Database{}
-	db.New(comp, netEndpoint, pr, nilLogger)
+	db := New(comp, netEndpoint, pr, nilLogger)
 
 	db.ListenClient()
 }
@@ -136,11 +132,11 @@ func TestDatabase_Close_Positive(t *testing.T) {
 	comp.EXPECT().Close().Return(nil)
 
 	netEndpoint := network.NewMockEndpoint(t)
+	netEndpoint.EXPECT().Close().Return(nil)
 
 	pr := mockParser.NewMockParser(t)
 
-	db := Database{}
-	db.New(comp, netEndpoint, pr, nilLogger)
+	db := New(comp, netEndpoint, pr, nilLogger)
 
 	err := db.Close()
 	assert.NoError(t, err)
@@ -151,11 +147,11 @@ func TestDatabase_Close_Negative(t *testing.T) {
 	comp.EXPECT().Close().Return(fmt.Errorf("error: %w", errors.New("test error")))
 
 	netEndpoint := network.NewMockEndpoint(t)
+	netEndpoint.EXPECT().Close().Return(nil)
 
 	pr := mockParser.NewMockParser(t)
 
-	db := Database{}
-	db.New(comp, netEndpoint, pr, nilLogger)
+	db := New(comp, netEndpoint, pr, nilLogger)
 
 	err := db.Close()
 	assert.EqualError(t, err, "Database.Close() failed")

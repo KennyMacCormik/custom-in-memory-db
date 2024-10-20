@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"custom-in-memory-db/internal/server/cmd"
 	"custom-in-memory-db/internal/server/db/storage/wal"
 	"custom-in-memory-db/internal/server/network"
@@ -24,37 +25,39 @@ type errMsg struct {
 }
 
 type Server struct {
-	initDone bool
-
 	timeout time.Duration
 	addr    string
 
 	lg     *slog.Logger
 	router *gin.Engine
+	server *http.Server
+}
+
+func (s *Server) New(conf cmd.Config, lg *slog.Logger) {
+
+	s.addr = strings.Join([]string{conf.Network.Host, strconv.Itoa(conf.Network.Port)}, ":")
+	s.timeout = conf.Network.Timeout
+
+	s.lg = lg
+	s.initGin(conf)
+}
+
+func (s *Server) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	defer cancel()
+	return s.server.Shutdown(ctx)
 }
 
 func (s *Server) Listen(f network.Handler) {
 	s.initHandlers(f)
-	server := &http.Server{
+	s.server = &http.Server{
 		Addr:         s.addr,
 		Handler:      s.router,
 		ReadTimeout:  s.timeout,
 		WriteTimeout: s.timeout,
 		IdleTimeout:  s.timeout,
 	}
-	_ = server.ListenAndServe()
-}
-
-func (s *Server) New(conf cmd.Config, lg *slog.Logger) {
-	if !s.initDone {
-		s.initDone = true
-
-		s.addr = strings.Join([]string{conf.Network.Host, strconv.Itoa(conf.Network.Port)}, ":")
-		s.timeout = conf.Network.Timeout
-
-		s.lg = lg
-		s.initGin(conf)
-	}
+	_ = s.server.ListenAndServe()
 }
 
 func (s *Server) initGin(conf cmd.Config) {

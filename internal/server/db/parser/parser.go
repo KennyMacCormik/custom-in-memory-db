@@ -28,8 +28,6 @@ type Parser interface {
 }
 
 type Parse struct {
-	initDone bool
-
 	eol            byte
 	trim           string
 	sep            string

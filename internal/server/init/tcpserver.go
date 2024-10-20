@@ -11,8 +11,7 @@ import (
 )
 
 func TcpServer(conf cmd.Config, lg *slog.Logger) network.Endpoint {
-	srv := tcp.Server{}
-	err := srv.New(conf.Network.Host, strconv.Itoa(conf.Network.Port), conf.Network.Timeout, conf.Network.MaxConn, lg)
+	srv, err := tcp.New(conf.Network.Host, strconv.Itoa(conf.Network.Port), conf.Network.Timeout, conf.Network.MaxConn, lg)
 	if err != nil {
 		lg.Error("failed to init tcp server", "error", errors.Unwrap(err).Error())
 		os.Exit(errExit)
@@ -21,5 +20,5 @@ func TcpServer(conf cmd.Config, lg *slog.Logger) network.Endpoint {
 	lg.Debug("tcp server params", "Host", conf.Network.Host,
 		"Port", conf.Network.Port, "Timeout", conf.Network.Timeout, "MaxConn", conf.Network.MaxConn)
 
-	return &srv
+	return srv
 }

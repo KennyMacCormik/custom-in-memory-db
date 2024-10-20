@@ -54,30 +54,26 @@ type Wal struct {
 }
 
 type Config struct {
-	initDone bool
-	Engine   Engine  `mapstructure:",squash"`
-	Network  Network `mapstructure:",squash"`
-	Logging  Logging `mapstructure:",squash"`
-	Wal      Wal     `mapstructure:",squash"`
+	Engine  Engine  `mapstructure:",squash"`
+	Network Network `mapstructure:",squash"`
+	Logging Logging `mapstructure:",squash"`
+	Wal     Wal     `mapstructure:",squash"`
 }
 
 func New() (Config, error) {
 	c := Config{}
-	if !c.initDone {
-		c.initDone = true
 
-		err := c.loadEnv()
-		if err != nil {
-			return Config{}, fmt.Errorf("config unmarshalling error: %w", err)
-		}
-
-		err = c.validate()
-		if err != nil {
-			return Config{}, fmt.Errorf("config validation error: %w", errors.New(c.handleValidatorError(err)))
-		}
-
-		c.Wal.SegSize *= KB
+	err := c.loadEnv()
+	if err != nil {
+		return Config{}, fmt.Errorf("config unmarshalling error: %w", err)
 	}
+
+	err = c.validate()
+	if err != nil {
+		return Config{}, fmt.Errorf("config validation error: %w", errors.New(c.handleValidatorError(err)))
+	}
+
+	c.Wal.SegSize *= KB
 
 	return c, nil
 }

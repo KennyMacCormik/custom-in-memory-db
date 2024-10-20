@@ -27,19 +27,20 @@ func (c *connMeter) new(maxConn int) {
 	c.cond = sync.NewCond(&c.mtx)
 }
 
-func (s *Server) New(host, port string, deadline time.Duration, maxConn int, lg *slog.Logger) error {
+func New(host, port string, deadline time.Duration, maxConn int, lg *slog.Logger) (network.Endpoint, error) {
 	const suf = "TcpServer.New()"
 	var err error
+	s := Server{}
 	address := strings.Join([]string{host, port}, ":")
 	s.listener, err = net.Listen(listenNetwork, address)
 	if err != nil {
-		return fmt.Errorf("%s failed: %w", suf, err)
+		return nil, fmt.Errorf("%s failed: %w", suf, err)
 	}
 	s.deadline = deadline
 	s.maxConn = maxConn
 	s.lg = lg
 
-	return nil
+	return &s, nil
 }
 
 func (s *Server) Close() error {

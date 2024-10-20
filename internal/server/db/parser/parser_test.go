@@ -2,7 +2,6 @@ package parser
 
 import (
 	"bytes"
-	"custom-in-memory-db/internal/server/cmd"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io"
@@ -18,15 +17,6 @@ const testArgLen = 20
 const unacceptableChars = "!\"#$%&'()+|-.:;<=>?@[]^`{},~"
 
 var nilLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
-var conf = cmd.Config{
-	Parser: cmd.Parser{
-		Eol:            '\n',
-		Trim:           " \t\n",
-		Sep:            " ",
-		ToReplaceBySep: "\t",
-		Tag:            "alphanum|numeric|alpha|containsany=*_/,excludesall=!\"#$%&'()+0x2C-.:;<=>?@[]^`{}0x7C~,printascii",
-	},
-}
 
 // get
 
@@ -42,8 +32,7 @@ func TestRead_Get_Positive(t *testing.T) {
 		},
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -63,8 +52,7 @@ func TestRead_Get_Negative_ZeroArgs(t *testing.T) {
 		err:      "parser.Read().composeCommand().validateArgs() failed: \"GET\" expects exactly 1 arg",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -84,8 +72,7 @@ func TestRead_Get_Negative_ExcessiveArgs(t *testing.T) {
 		err:      "parser.Read().composeCommand().validateArgs() failed: \"GET\" expects exactly 1 arg",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -102,11 +89,10 @@ func TestRead_Get_Negative_NoEndline(t *testing.T) {
 	}{
 		ioInput:  "GET 1",
 		expected: Command{},
-		err:      "parser.Read() failed failed: expect '\\n' as EOL, got none",
+		err:      "parser.Read() failed: expect '\\n' as EOL, got none",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -130,8 +116,7 @@ func TestRead_Set_Positive(t *testing.T) {
 		},
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -151,8 +136,7 @@ func TestRead_Set_Negative_NoArgs(t *testing.T) {
 		err:      "parser.Read().composeCommand().validateArgs() failed: \"SET\" expects exactly 2 args",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -172,8 +156,7 @@ func TestRead_Set_Negative_InsufficientArgs(t *testing.T) {
 		err:      "parser.Read().composeCommand().validateArgs() failed: \"SET\" expects exactly 2 args",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -193,8 +176,7 @@ func TestRead_Set_Negative_ExcessiveArgs(t *testing.T) {
 		err:      "parser.Read().composeCommand().validateArgs() failed: \"SET\" expects exactly 2 args",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -211,11 +193,10 @@ func TestRead_Set_Negative_NoEndline(t *testing.T) {
 	}{
 		ioInput:  "SET 1 2 3",
 		expected: Command{},
-		err:      "parser.Read() failed failed: expect '\\n' as EOL, got none",
+		err:      "parser.Read() failed: expect '\\n' as EOL, got none",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -238,8 +219,7 @@ func TestRead_Del_Positive(t *testing.T) {
 		},
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -259,8 +239,7 @@ func TestRead_Del_Negative_ZeroArgs(t *testing.T) {
 		err:      "parser.Read().composeCommand().validateArgs() failed: \"DEL\" expects exactly 1 arg",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -280,8 +259,7 @@ func TestRead_Del_Negative_ExcessiveArgs(t *testing.T) {
 		err:      "parser.Read().composeCommand().validateArgs() failed: \"DEL\" expects exactly 1 arg",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -298,11 +276,10 @@ func TestRead_Del_Negative_NoEndline(t *testing.T) {
 	}{
 		ioInput:  "DEL 1",
 		expected: Command{},
-		err:      "parser.Read() failed failed: expect '\\n' as EOL, got none",
+		err:      "parser.Read() failed: expect '\\n' as EOL, got none",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -324,8 +301,7 @@ func TestRead_BogusCommand_WithoutArgs(t *testing.T) {
 		err:      "parser.Read().composeCommand().validateArgs() failed: got empty or unexpected command \"QWERTY\"",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -345,8 +321,7 @@ func TestRead_BogusCommand_WithArgs(t *testing.T) {
 		err:      "parser.Read().composeCommand().validateArgs() failed: got empty or unexpected command \"HELLO\"",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -366,8 +341,7 @@ func TestRead_OneSymbolNewLine_String(t *testing.T) {
 		err:      "parser.Read().composeCommand() failed: empty command",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -387,8 +361,7 @@ func TestRead_ZeroString(t *testing.T) {
 		err:      "parser.Read().composeCommand() failed: empty command",
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -412,8 +385,7 @@ func TestRead_Positive_alphanum(t *testing.T) {
 		},
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -435,8 +407,7 @@ func TestRead_Positive_numeric(t *testing.T) {
 		},
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -458,8 +429,7 @@ func TestRead_Positive_alpha(t *testing.T) {
 		},
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -481,8 +451,7 @@ func TestRead_Positive_underscore(t *testing.T) {
 		},
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -504,8 +473,7 @@ func TestRead_Positive_slash(t *testing.T) {
 		},
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -527,8 +495,7 @@ func TestRead_Positive_star(t *testing.T) {
 		},
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -547,17 +514,16 @@ func TestRead_Get_Positive_RandArgs(t *testing.T) {
 		return string(b)
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 
 	for i := 0; i < num; i++ {
 		randStr := randSeq(testArgLen)
-		randStr = "GET " + randStr + string(conf.Parser.Eol)
+		randStr = "GET " + randStr + string(eol)
 		val, err := pr.Read(bytes.NewReader([]byte(randStr)), nilLogger)
 
 		assert.NoError(t, err)
-		res := strings.Join([]string{val.Command, val.Arg1}, conf.Parser.Sep)
-		res += string(conf.Parser.Eol)
+		res := strings.Join([]string{val.Command, val.Arg1}, sep)
+		res += string(eol)
 		assert.Equal(t, res, randStr)
 		if err != nil {
 			break
@@ -575,17 +541,16 @@ func TestRead_Del_Positive_RandArgs(t *testing.T) {
 		return string(b)
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 
 	for i := 0; i < num; i++ {
 		randStr := randSeq(testArgLen)
-		randStr = "DEL " + randStr + string(conf.Parser.Eol)
+		randStr = "DEL " + randStr + string(eol)
 		val, err := pr.Read(bytes.NewReader([]byte(randStr)), nilLogger)
 
 		assert.NoError(t, err)
-		res := strings.Join([]string{val.Command, val.Arg1}, conf.Parser.Sep)
-		res += string(conf.Parser.Eol)
+		res := strings.Join([]string{val.Command, val.Arg1}, sep)
+		res += string(eol)
 		assert.Equal(t, res, randStr)
 		if err != nil {
 			break
@@ -603,19 +568,18 @@ func TestRead_Set_Positive_RandArgs(t *testing.T) {
 		return string(b)
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 
 	for i := 0; i < num; i++ {
 		randStr1 := randSeq(testArgLen)
 		randStr2 := randSeq(testArgLen)
-		randStr := strings.Join([]string{"SET", randStr1, randStr2}, conf.Parser.Sep)
-		randStr += string(conf.Parser.Eol)
+		randStr := strings.Join([]string{"SET", randStr1, randStr2}, sep)
+		randStr += string(eol)
 		val, err := pr.Read(bytes.NewReader([]byte(randStr)), nilLogger)
 
 		assert.NoError(t, err)
-		res := strings.Join([]string{val.Command, val.Arg1, val.Arg2}, conf.Parser.Sep)
-		res += string(conf.Parser.Eol)
+		res := strings.Join([]string{val.Command, val.Arg1, val.Arg2}, sep)
+		res += string(eol)
 		assert.Equal(t, res, randStr)
 		if err != nil {
 			break
@@ -635,10 +599,9 @@ func TestRead_Negative_Unicode(t *testing.T) {
 		expected: Command{},
 	}
 	testCase.ioInput = fmt.Sprintf("GET %s\n", arg)
-	testCase.err = fmt.Sprintf("parser.Read().composeCommand().validateArgs() failed: got %q, expected %q", arg, conf.Parser.Tag)
+	testCase.err = fmt.Sprintf("parser.Read().composeCommand().validateArgs() failed: got %q, expected %q", arg, tag)
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 	r := bytes.NewReader([]byte(testCase.ioInput))
 
 	val, err := pr.Read(r, nilLogger)
@@ -656,13 +619,12 @@ func TestRead_Negative_UnacceptableChars(t *testing.T) {
 		expected: Command{},
 	}
 
-	pr := Parse{}
-	pr.New(conf)
+	pr := New()
 
 	for _, char := range unacceptableChars {
 		arg := fmt.Sprintf("k3y/%s_value*", string(char))
 		testCase.ioInput = fmt.Sprintf("SET %s 1\n", arg)
-		testCase.err = fmt.Sprintf("parser.Read().composeCommand().validateArgs() failed: got %q, expected %q", arg, conf.Parser.Tag)
+		testCase.err = fmt.Sprintf("parser.Read().composeCommand().validateArgs() failed: got %q, expected %q", arg, tag)
 
 		val, err := pr.Read(bytes.NewReader([]byte(testCase.ioInput)), nilLogger)
 		assert.EqualError(t, err, testCase.err)
@@ -675,7 +637,7 @@ func TestRead_Negative_UnacceptableChars(t *testing.T) {
 	for _, char := range unacceptableChars {
 		arg := fmt.Sprintf("k3y/%s_value*", string(char))
 		testCase.ioInput = fmt.Sprintf("SET 1 %s\n", arg)
-		testCase.err = fmt.Sprintf("parser.Read().composeCommand().validateArgs() failed: got %q, expected %q", arg, conf.Parser.Tag)
+		testCase.err = fmt.Sprintf("parser.Read().composeCommand().validateArgs() failed: got %q, expected %q", arg, tag)
 
 		val, err := pr.Read(bytes.NewReader([]byte(testCase.ioInput)), nilLogger)
 		assert.EqualError(t, err, testCase.err)
