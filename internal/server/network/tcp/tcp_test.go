@@ -13,11 +13,12 @@ const port = "8080"
 const timeout = 1
 const goMax = 100
 
-func TestServer_NewAndClose(t *testing.T) {
-	srv := Server{}
-	err := srv.New(ip, port, timeout*time.Second, goMax, slog.New(slog.NewTextHandler(io.Discard, nil)))
+var nilLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
+func TestServer_NewAndClose(t *testing.T) {
+	srv, err := New(ip, port, timeout*time.Second, goMax, nilLogger)
 	assert.NoError(t, err)
+	assert.NotNil(t, srv)
 
 	err = srv.Close()
 	assert.NoError(t, err)
@@ -25,7 +26,7 @@ func TestServer_NewAndClose(t *testing.T) {
 
 func TestConnMeter_New(t *testing.T) {
 	var cm connMeter
-	cm.New(goMax)
+	cm.new(goMax)
 
 	assert.Equal(t, goMax, cm.maxConn)
 	assert.NotEqual(t, nil, cm.cond)

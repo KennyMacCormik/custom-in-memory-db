@@ -1,10 +1,13 @@
 package db
 
 import (
+	"bytes"
 	"custom-in-memory-db/internal/server/db/parser"
 	"custom-in-memory-db/mocks/compute"
-	ioMock "custom-in-memory-db/mocks/io"
+	"custom-in-memory-db/mocks/network"
+	mockParser "custom-in-memory-db/mocks/parser"
 	"errors"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"io"
@@ -12,15 +15,15 @@ import (
 	"testing"
 )
 
-const nilValue = ""
+var nilLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 func TestDatabase_New(t *testing.T) {
 	comp := compute.NewMockCompute(t)
+	netEndpoint := network.NewMockEndpoint(t)
+	pr := mockParser.NewMockParser(t)
 
-	db := Database{}
-	db.New(comp)
-
-	assert.NotNil(t, db.comp)
+	db := New(comp, netEndpoint, pr, nilLogger)
+	assert.NotNil(t, db)
 }
 
 func TestDatabase_HandleRequest_Positive(t *testing.T) {
@@ -31,87 +34,125 @@ func TestDatabase_HandleRequest_Positive(t *testing.T) {
 	}{
 		cmd: parser.Command{
 			Command: "GET",
-			Args:    []string{"1"},
+			Arg1:    "1",
 		},
 		in:  "GET 1\n",
 		res: "2",
 	}
+	r := bytes.NewBuffer([]byte(testCase.in))
 
 	comp := compute.NewMockCompute(t)
-	comp.EXPECT().Exec(testCase.cmd).Return(testCase.res, nil)
+	comp.EXPECT().Exec(testCase.cmd, nilLogger).Return(testCase.res, nil)
 
-	r := ioMock.NewMockReader(t)
-	r.On("Read", mock.Anything).Run(func(args mock.Arguments) {
-		bytes := args[0].([]byte)
-		copy(bytes, testCase.in)
-	}).Return(len(testCase.in), nil)
+	netEndpoint := network.NewMockEndpoint(t)
 
-	db := Database{}
-	db.New(comp)
+	pr := mockParser.NewMockParser(t)
+	pr.EXPECT().Read(r, nilLogger).Return(testCase.cmd, nil)
 
-	result, err := db.HandleRequest(r, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	db := New(comp, netEndpoint, pr, nilLogger)
+
+	result, err := db.HandleRequest(r, nilLogger)
 	assert.NoError(t, err)
 	assert.Equal(t, testCase.res, result)
 }
 
-func TestDatabase_HandleRequest_NegativeReader(t *testing.T) {
+func TestDatabase_HandleRequest_Negative_Parser(t *testing.T) {
 	testCase := struct {
 		cmd parser.Command
 		in  string
-		res string
 		err string
 	}{
 		cmd: parser.Command{
 			Command: "GET",
-			Args:    []string{"1"},
+			Arg1:    "1",
 		},
 		in:  "GET 1\n",
-		res: "2",
-		err: "mock",
+		err: "test error",
 	}
+	r := bytes.NewBuffer([]byte(testCase.in))
 
 	comp := compute.NewMockCompute(t)
+	netEndpoint := network.NewMockEndpoint(t)
 
-	r := ioMock.NewMockReader(t)
-	r.On("Read", mock.Anything).Run(func(args mock.Arguments) {}).Return(0, errors.New("mock"))
+	pr := mockParser.NewMockParser(t)
+	pr.EXPECT().Read(r, nilLogger).Return(parser.Command{}, errors.New("test error"))
 
-	db := Database{}
-	db.New(comp)
+	db := New(comp, netEndpoint, pr, nilLogger)
 
-	result, err := db.HandleRequest(r, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	assert.Equal(t, nilValue, result)
+	result, err := db.HandleRequest(r, nilLogger)
+	assert.Empty(t, result)
 	assert.EqualError(t, err, testCase.err)
 }
 
-func TestDatabase_HandleRequest_NegativeCompute(t *testing.T) {
+func TestDatabase_HandleRequest_Negative_Compute(t *testing.T) {
 	testCase := struct {
 		cmd parser.Command
 		in  string
-		res string
 		err string
 	}{
 		cmd: parser.Command{
 			Command: "GET",
-			Args:    []string{"1"},
+			Arg1:    "1",
 		},
 		in:  "GET 1\n",
-		res: "2",
-		err: "mock",
+		err: "test error",
 	}
+	r := bytes.NewBuffer([]byte(testCase.in))
 
 	comp := compute.NewMockCompute(t)
-	comp.EXPECT().Exec(testCase.cmd).Return("", errors.New("mock"))
+	comp.EXPECT().Exec(testCase.cmd, nilLogger).Return("", errors.New("test error"))
 
-	r := ioMock.NewMockReader(t)
-	r.On("Read", mock.Anything).Run(func(args mock.Arguments) {
-		bytes := args[0].([]byte)
-		copy(bytes, testCase.in)
-	}).Return(len(testCase.in), nil)
+	netEndpoint := network.NewMockEndpoint(t)
 
-	db := Database{}
-	db.New(comp)
+	pr := mockParser.NewMockParser(t)
+	pr.EXPECT().Read(r, nilLogger).Return(testCase.cmd, nil)
 
-	result, err := db.HandleRequest(r, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	db := New(comp, netEndpoint, pr, nilLogger)
+
+	result, err := db.HandleRequest(r, nilLogger)
+	assert.Empty(t, result)
 	assert.EqualError(t, err, testCase.err)
-	assert.Equal(t, nilValue, result)
+}
+
+func TestDatabase_ListenClient(t *testing.T) {
+	comp := compute.NewMockCompute(t)
+
+	netEndpoint := network.NewMockEndpoint(t)
+	netEndpoint.EXPECT().Listen(mock.AnythingOfType("network.Handler"))
+
+	pr := mockParser.NewMockParser(t)
+
+	db := New(comp, netEndpoint, pr, nilLogger)
+
+	db.ListenClient()
+}
+
+func TestDatabase_Close_Positive(t *testing.T) {
+	comp := compute.NewMockCompute(t)
+	comp.EXPECT().Close().Return(nil)
+
+	netEndpoint := network.NewMockEndpoint(t)
+	netEndpoint.EXPECT().Close().Return(nil)
+
+	pr := mockParser.NewMockParser(t)
+
+	db := New(comp, netEndpoint, pr, nilLogger)
+
+	err := db.Close()
+	assert.NoError(t, err)
+}
+
+func TestDatabase_Close_Negative(t *testing.T) {
+	comp := compute.NewMockCompute(t)
+	comp.EXPECT().Close().Return(fmt.Errorf("error: %w", errors.New("test error")))
+
+	netEndpoint := network.NewMockEndpoint(t)
+	netEndpoint.EXPECT().Close().Return(nil)
+
+	pr := mockParser.NewMockParser(t)
+
+	db := New(comp, netEndpoint, pr, nilLogger)
+
+	err := db.Close()
+	assert.EqualError(t, err, "Database.Close() failed")
 }

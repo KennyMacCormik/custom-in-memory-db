@@ -1,0 +1,4 @@
+{"uri": "/cmd", "method": "POST", "body": "{\"Key\": \"1\", \"Value\": \"2\"}"}
+{"uri": "/cmd/1", "method": "GET"}
+{"uri": "/cmd/1", "method": "DELETE"}
+{"uri": "/cmd/1", "method": "GET"}

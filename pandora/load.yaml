@@ -1,0 +1,25 @@
+pools:
+  - id: Ram DB client
+    gun:
+      type: http
+      target: localhost:8080
+      dial:
+        timeout: 1s
+    ammo:
+      type: http/json
+      file: ./simple
+    result:
+      type: phout
+      destination: ./phout.log
+
+    rps-per-instance: false          # rps section is counted for each instance or for the whole test. false - for the whole test
+    discard_overflow: true           # strict adherence to the request schedule
+
+    rps:
+      type: const
+      ops: 200
+      duration: 60s
+
+    startup:
+      type: once
+      times: 12 #set no less than runtime.MaxCPU() or GOMAXPROCS
